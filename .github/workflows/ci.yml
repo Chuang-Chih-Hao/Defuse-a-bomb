@@ -47,7 +47,7 @@ jobs:
           done
           grep -q '"ok":true' /tmp/live-health.json
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/api/info" | tee /tmp/live-info.json
-          grep -q '"version":"1.0.0"' /tmp/live-info.json
+          grep -q '"version":"1.1.0"' /tmp/live-info.json
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/" | grep -q '數位危機處理局'
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/app.js" | grep -q 'socket'
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/socket.io/?EIO=4&transport=polling" -o /tmp/engine-handshake.txt
