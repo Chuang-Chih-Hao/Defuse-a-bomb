@@ -54,6 +54,16 @@ test('failed attempts, hints, retry, feedback, and restricted teacher controls',
   const code=created.code;
   let latest;
   a.on('room:snapshot',s=>latest=s);
+  const untilStatus=async(expected)=>{
+    if(latest?.status===expected)return;
+    await new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>{a.off('room:snapshot',on);reject(new Error('Timed out waiting for '+expected));},2000);
+      function on(update){
+        if(update.status===expected){clearTimeout(timeout);a.off('room:snapshot',on);resolve();}
+      }
+      a.on('room:snapshot',on);
+    });
+  };
   const first=await send(a,'room:join',{code,nickname:'偵測員'});
   const second=await send(b,'room:join',{code,nickname:'執行員'});
   assert.equal(first.ok,true);assert.equal(second.ok,true);
@@ -81,10 +91,12 @@ test('failed attempts, hints, retry, feedback, and restricted teacher controls',
   assert.equal(latest.members[1].errors,6);
   assert.equal(latest.members[1].feedback.rating,5);
   assert.equal((await send(t,'teacher:action',{action:'retry'})).ok,true);
+  await untilStatus('active');
   assert.equal(latest.status,'active');
   assert.equal(latest.stability,100);
   assert.equal(latest.hintsLeft,2);
   assert.equal((await send(t,'teacher:action',{action:'reset'})).ok,true);
+  await untilStatus('lobby');
   assert.equal(latest.status,'lobby');
   assert.equal(latest.history.length,0);
 });
