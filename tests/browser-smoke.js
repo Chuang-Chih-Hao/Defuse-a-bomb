@@ -67,6 +67,7 @@ async function main(){
     await a.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('邏輯密碼鎖'));
     assert.match(await a.locator('#rolePill').textContent(),/拆彈操作員/);
     assert.match(await a.locator('#turnTitle').textContent(),/你是拆彈操作員/);
+    await b.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('邏輯密碼鎖') && document.querySelector('.mission-rule')?.textContent.includes('AND'));
     assert.match(await b.locator('#missionPanel').textContent(),/AND/);
     assert.equal(await a.locator('.mission-rule').count(),0);
     await a.locator('#editor [data-field=color]').selectOption('RED');
