@@ -107,16 +107,19 @@ async function main(){
 
     await teacher.locator('[data-teacher=next]').click();
     await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('駭客的最終程式'))));
+    // Each edit is synchronized before the next one; rapid re-rendering otherwise
+    // can replace an input before its pending change event has been emitted.
+    const waitBoth=async(fragment)=>Promise.all([a,b].map(page=>page.waitForFunction(text=>
+      document.querySelector('#codeOutput')?.textContent.includes(text),fragment,{timeout:15000})));
     await a.locator('#editor [data-move="2:-1"]').click();
+    await waitBoth('sweep()\nverify()\nseal()');
     await a.locator('#editor [data-move="1:-1"]').click();
+    await waitBoth('verify()\nsweep()\nseal()');
     await a.locator('#editor [data-field=mode]').selectOption('AND');
+    await waitBoth('key_color == "RED" and power > 50');
     await a.locator('#editor [data-field=limit]').fill('4');
     await a.locator('#editor [data-field=limit]').press('Tab');
-    const debugCorrect=()=>{const code=document.querySelector('#codeOutput')?.textContent||'';
-      return code.startsWith('verify()\nsweep()\nseal()') &&
-        code.includes('key_color == "RED" and power > 50') &&
-        code.includes('for i in range(0, 4, 1)');};
-    await Promise.all([a,b].map(page=>page.waitForFunction(debugCorrect,null,{timeout:12000})));
+    await waitBoth('for i in range(0, 4, 1)');
     await b.locator('#approveBtn').click();
     await a.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
     await a.locator('#runBtn').click();
