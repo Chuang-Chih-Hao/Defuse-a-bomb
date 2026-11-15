@@ -45,6 +45,15 @@ async function main(){
     await b.waitForFunction(()=>document.querySelector('#editor .block'));
     assert.match(await b.locator('#rolePill').textContent(),/拆彈操作員/);
     assert.match(await a.locator('#rolePill').textContent(),/程式分析員/);
+    assert.match(await a.locator('#missionPanel').textContent(),/機密|僅分析員/);
+    assert.match(await a.locator('.mission-rule').textContent(),/藍色 BLUE/);
+    assert.match(await a.locator('#turnTitle').textContent(),/你是程式分析員/);
+    assert.match(await b.locator('#turnTitle').textContent(),/你是拆彈操作員/);
+    assert.equal(await b.locator('.mission-rule').count(),0,'Operator must not see analyst answer');
+    assert.equal(await b.locator('#editor .scratch-hat').count(),1,'Scratch hat should be rendered');
+    assert.match(await b.locator('#codeOutput').textContent(),/activate\("GREEN"\)/);
+    assert.doesNotMatch(await b.locator('#codeOutput').textContent(),/;|\bfunction\b/);
+    console.log('PASS analyst task card, private instructions, roles, Scratch/Python interface');
     assert.equal(await a.locator('#editor [data-move="0:1"]').isDisabled(),true,'Analyst cannot reorder cards');
     await b.locator('#editor [data-move="0:1"]').click(); // BLUE GREEN RED
     await b.locator('#editor [data-move="1:1"]').click(); // BLUE RED GREEN
@@ -57,12 +66,15 @@ async function main(){
     await teacher.locator('[data-teacher=next]').click();
     await a.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('邏輯密碼鎖'));
     assert.match(await a.locator('#rolePill').textContent(),/拆彈操作員/);
+    assert.match(await a.locator('#turnTitle').textContent(),/你是拆彈操作員/);
+    assert.match(await b.locator('#missionPanel').textContent(),/AND/);
+    assert.equal(await a.locator('.mission-rule').count(),0);
     await a.locator('#editor [data-field=color]').selectOption('RED');
     await a.locator('#editor [data-field=threshold]').fill('50');
     await a.locator('#editor [data-field=threshold]').press('Tab');
     await a.locator('#editor [data-field=mode]').selectOption('AND');
-    await a.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('keyColor === "RED" && power > 50'),null,{timeout:10000});
-    await b.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('keyColor === "RED" && power > 50'),null,{timeout:10000});
+    await a.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('key_color == "RED" and power > 50'),null,{timeout:10000});
+    await b.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('key_color == "RED" and power > 50'),null,{timeout:10000});
     await b.locator('#approveBtn').click();
     await a.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
     console.log('STAGE2 CODE',await a.locator('#codeOutput').textContent());
@@ -129,10 +141,40 @@ async function main(){
     await b.locator('#runBtn').click();
     await teacher.waitForFunction(()=>document.querySelector('#systemStatus')?.textContent.includes('安全解除'));
     console.log('PASS lab role swap and loop challenge');
+    await teacher.locator('[data-teacher=labNext]').click();
+    await b.waitForFunction(()=>document.querySelector('#labForm')&&!document.querySelector('#labPanel').hidden);
+    await b.locator('[data-preset="1"]').click();
+    await b.locator('#labColor').selectOption('YELLOW');
+    await b.locator('#labThreshold').fill('80');
+    await b.locator('#labThreshold').press('Tab');
+    await b.locator('#labMode').selectOption('OR');
+    assert.match(await b.locator('#labPreview').textContent(),/YELLOW/);
+    assert.match(await b.locator('#labPreview').textContent(),/或（OR/);
+    assert.doesNotMatch(await b.locator('#labPreview').textContent(),/且（AND/);
+    // Teacher broadcast while drafting must preserve all unsent input settings.
+    await teacher.locator('#saveConfig').click();
+    await b.waitForFunction(()=>document.querySelector('#labThreshold')?.value==='80'&&document.querySelector('#labColor')?.value==='YELLOW'&&document.querySelector('#labMode')?.value==='OR');
+    assert.equal(await b.locator('#labMode').inputValue(),'OR');
+    await b.locator('#labPublish').click();
+    await b.waitForFunction(()=>document.querySelector('.mission-rule')?.textContent.includes('YELLOW'));
+    assert.match(await b.locator('.mission-rule').textContent(),/或（OR/);
+    assert.doesNotMatch(await b.locator('.mission-rule').textContent(),/且能源/);
+    await a.waitForFunction(()=>document.querySelector('#editor [data-field=color]')?.value==='BLUE');
+    assert.equal(await a.locator('.mission-rule').count(),0);
+    await a.locator('#editor [data-field=color]').selectOption('YELLOW');
+    await a.locator('#editor [data-field=threshold]').fill('80');
+    await a.locator('#editor [data-field=threshold]').press('Tab');
+    await a.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('key_color == "YELLOW" or power > 80'));
+    await b.locator('#approveBtn').click();
+    await a.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
+    await a.locator('#runBtn').click();
+    await teacher.waitForFunction(()=>document.querySelector('#systemStatus')?.textContent.includes('安全解除'));
+    console.log('PASS lab OR challenge: YELLOW/80 wording, publish, input persistence, Python, correct grading');
 
-    await b.reload({waitUntil:'domcontentloaded'});
-    await b.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('挑戰實驗室'));
-    assert.match(await b.locator('#rolePill').textContent(),/拆彈操作員/);
+
+    await a.reload({waitUntil:'domcontentloaded'});
+    await a.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('挑戰實驗室'));
+    assert.match(await a.locator('#rolePill').textContent(),/拆彈操作員/);
     console.log('PASS browser refresh reconnect');
 
     await teacher.screenshot({path:process.env.TARGET_URL?'render-teacher-screenshot.png':'teacher-screenshot.png',fullPage:true});
