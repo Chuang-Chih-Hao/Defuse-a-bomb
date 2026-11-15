@@ -52,7 +52,9 @@ jobs:
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/app.js" | grep -q 'socket'
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/socket.io/?EIO=4&transport=polling" -o /tmp/engine-handshake.txt
           grep -q '^0' /tmp/engine-handshake.txt
-          echo "PASS public Render HTTPS, /health, /api/info, HTML, JS and Engine.IO handshake"
+          curl --fail --silent --show-error -I "$TARGET_URL/app.js?v=1.1.1" | tr -d '\r' | grep -i 'cache-control: no-store'
+          curl --fail --silent --show-error "$TARGET_URL/" | grep -q 'app.js?v=1.1.1'
+          echo "PASS production asset cache-busting, HTTP health and Engine.IO handshake"
       - name: Public Render three-user Chromium gameplay
         env:
           TARGET_URL: https://defuse-a-bomb.onrender.com
@@ -71,4 +73,6 @@ jobs:
             teacher-screenshot.png
             render-teacher-screenshot.png
             render-debug-*.png
+            phone-*.png
+            render-phone-*.png
           if-no-files-found: ignore
