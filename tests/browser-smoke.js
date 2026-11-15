@@ -57,6 +57,8 @@ async function main(){
     assert.equal(await a.locator('#editor [data-move="0:1"]').isDisabled(),true,'Analyst cannot reorder cards');
     await b.locator('#editor [data-move="0:1"]').click(); // BLUE GREEN RED
     await b.locator('#editor [data-move="1:1"]').click(); // BLUE RED GREEN
+    const orderedSignal='activate("BLUE")\nactivate("RED")\nactivate("GREEN")';
+    await Promise.all([a,b].map(page=>page.waitForFunction(expected=>document.querySelector('#codeOutput')?.textContent===expected,orderedSignal,{timeout:12000})));
     await a.locator('#approveBtn').click();
     await b.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
     await b.locator('#runBtn').click();
@@ -96,6 +98,7 @@ async function main(){
     await teacher.locator('[data-teacher=resume]').click();
     await b.locator('#editor [data-field=limit]').fill('4');
     await b.locator('#editor [data-field=limit]').press('Tab');
+    await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('range(0, 4, 1)'),null,{timeout:12000})));
     await a.locator('#approveBtn').click();
     await b.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
     await b.locator('#runBtn').click();
@@ -103,12 +106,17 @@ async function main(){
     console.log('PASS stage 3: counted loops and teacher pause/resume');
 
     await teacher.locator('[data-teacher=next]').click();
-    await a.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('駭客的最終程式'));
+    await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('駭客的最終程式'))));
     await a.locator('#editor [data-move="2:-1"]').click();
     await a.locator('#editor [data-move="1:-1"]').click();
     await a.locator('#editor [data-field=mode]').selectOption('AND');
     await a.locator('#editor [data-field=limit]').fill('4');
     await a.locator('#editor [data-field=limit]').press('Tab');
+    const debugCorrect=()=>{const code=document.querySelector('#codeOutput')?.textContent||'';
+      return code.startsWith('verify()\nsweep()\nseal()') &&
+        code.includes('key_color == "RED" and power > 50') &&
+        code.includes('for i in range(0, 4, 1)');};
+    await Promise.all([a,b].map(page=>page.waitForFunction(debugCorrect,null,{timeout:12000})));
     await b.locator('#approveBtn').click();
     await a.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
     await a.locator('#runBtn').click();
