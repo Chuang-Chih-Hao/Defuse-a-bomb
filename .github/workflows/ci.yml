@@ -53,13 +53,17 @@ jobs:
           grep -q '"ok":true' /tmp/live-health.json
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/api/info" | tee /tmp/live-info.json
           grep -q '"version":"1.2.0"' /tmp/live-info.json
-          curl --fail --silent --show-error --max-time 30 "$TARGET_URL/" | grep -q '數位危機處理局'
-          curl --fail --silent --show-error --max-time 30 "$TARGET_URL/app.js" | grep -q 'socket'
-          curl --fail --silent --show-error --max-time 30 "$TARGET_URL/features.js" | grep -q 'Watch Window'
+          # Save complete responses before asserting, avoiding early pipe closure with grep -q.
+          curl --fail --silent --show-error --max-time 30 "$TARGET_URL/" -o /tmp/live-index.html
+          grep -q '數位危機處理局' /tmp/live-index.html
+          curl --fail --silent --show-error --max-time 30 "$TARGET_URL/app.js" -o /tmp/live-app.js
+          grep -q 'socket' /tmp/live-app.js
+          curl --fail --silent --show-error --max-time 30 "$TARGET_URL/features.js" -o /tmp/live-features.js
+          grep -q 'watchWindow' /tmp/live-features.js
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/socket.io/?EIO=4&transport=polling" -o /tmp/engine-handshake.txt
           grep -q '^0' /tmp/engine-handshake.txt
           curl --fail --silent --show-error -I "$TARGET_URL/app.js?v=1.2.0" | tr -d '\r' | grep -i 'cache-control: no-store'
-          curl --fail --silent --show-error "$TARGET_URL/" | grep -q 'app.js?v=1.2.0'
+          grep -q 'app.js?v=1.2.0' /tmp/live-index.html
           echo "PASS production asset cache-busting, HTTP health and Engine.IO handshake"
       - name: Public Render three-user Chromium gameplay
         env:
