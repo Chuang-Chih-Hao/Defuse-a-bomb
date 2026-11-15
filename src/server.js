@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const express = require('express');
 const http = require('node:http');
 const { Server } = require('socket.io');
-const { STAGES, TITLES, makePuzzle, modify, evaluate, validateLabSpec, visiblePuzzle } = require('./engine');
+const { STAGES, TITLES, makePuzzle, modify, evaluate, validateLabSpec, visiblePuzzle, initialWatch, simulate } = require('./engine');
 
 const hash = token => crypto.createHash('sha256').update(token).digest('hex');
 const newToken = () => crypto.randomBytes(32).toString('base64url');
@@ -29,7 +29,8 @@ function newRoom() {
     remainingMs: 8*60000, deadline: null, startedAt: Date.now(), stageStartedAt: null,
     puzzle: null, revision: 0, approved: -1, stability: 100, teamScore: 0,
     stageScore: 0, hintsLeft: 2, attempts: 0, lastResult: null, resultSerial: 0,
-    messages: [], history: [], labRounds: 0, designerSpec: null
+    messages: [], history: [], labRounds: 0, designerSpec: null,
+    stepPlan:null,stepState:null
   };
   rooms.set(code,room);
   return { room,teacherToken };
@@ -56,6 +57,8 @@ function begin(room, spec = null) {
   room.hintsLeft = 2;
   room.attempts = 0;
   room.lastResult = null;
+  room.stepPlan = null;
+  room.stepState = room.puzzle ? {position:0,total:0,active:null,watch:initialWatch(room.puzzle),finished:false} : null;
   room.messages = [];
   room.stageStartedAt = Date.now();
   room.status = room.puzzle ? 'active' : 'paused';
@@ -100,6 +103,7 @@ function publicState(room, member = null, teacher = false) {
     revision: room.revision, approved: room.approved === room.revision,
     messages: room.messages.slice(-10), history: room.history.slice(-20),
     result: room.lastResult, labRounds: room.labRounds,
+    step: room.stepState ? structuredClone(room.stepState) : null,
     puzzle: room.puzzle ? visiblePuzzle(room.puzzle,teacher || role === 'analyst') : null,
     canEdit: role === 'operator' && room.status === 'active',
     canAnalyze: role === 'analyst' && room.status === 'active',
@@ -111,7 +115,7 @@ function createGameServer() {
   const app = express();
   app.disable('x-powered-by');
   app.get('/health', (_, res) => res.json({ok:true,service:'defuse-a-bomb',rooms:rooms.size,uptime:Math.round(process.uptime())}));
-  app.get('/api/info', (_, res) => res.json({name:'程式炸彈拆除專家：最後倒數',version:'1.1.1',stages:STAGES}));
+  app.get('/api/info', (_, res) => res.json({name:'程式炸彈拆除專家：最後倒數',version:'1.2.0',stages:STAGES}));
   app.use(express.static(path.join(__dirname,'../public'),{
     maxAge:0,
     setHeaders(res, filePath) {
@@ -239,6 +243,7 @@ function createGameServer() {
         room.mode='mission';room.stageIndex=0;room.status='lobby';room.puzzle=null;
         room.deadline=null;room.remainingMs=room.duration*60000;room.teamScore=0;
         room.history=[];room.labRounds=0;room.messages=[];room.lastResult=null;
+        room.stepPlan=null;room.stepState=null;
         for(const m of room.members) Object.assign(m,{errors:0,hints:0,edits:0,runs:0,messages:0,feedback:null});
       } else throw Error('未知教師指令');
       broadcast(room);return {status:room.status};
@@ -248,12 +253,17 @@ function createGameServer() {
       if(role!=='operator') throw Error('只有拆彈操作員可修改指令');
       modify(room.puzzle,{blocks});
       room.revision++;room.approved=-1;member.edits++;
-      room.lastResult=null;broadcast(room);return {revision:room.revision};
+      room.lastResult=null;
+      room.stepPlan=null;
+      room.stepState={position:0,total:0,active:null,watch:initialWatch(room.puzzle),finished:false};
+      broadcast(room);return {revision:room.revision};
     });
     handler(socket,'analysis:approve',()=>{
       const {room,role}=playGuard(socket);
       if(role!=='analyst') throw Error('只有程式分析員能核准執行');
       room.approved=room.revision;
+      room.stepPlan=null;
+      room.stepState={position:0,total:0,active:null,watch:initialWatch(room.puzzle),finished:false};
       broadcast(room);return {approved:true};
     });
     handler(socket,'analysis:message',({message})=>{
@@ -264,22 +274,61 @@ function createGameServer() {
       room.messages.push({from:member.nick,text:txt,time:Date.now()});
       member.messages++;broadcast(room);return {};
     });
-    handler(socket,'puzzle:run',()=>{
-      const {room,role,member}=playGuard(socket);
-      if(role!=='operator') throw Error('只有拆彈操作員可以執行');
-      if(room.approved!==room.revision) throw Error('需先請分析員檢查並核准目前版本');
-      room.approved=-1;room.attempts++;member.runs++;
-      const result=evaluate(room.puzzle);
+    // 所有扣分、穩定度與成功判定均由伺服器決定，瀏覽器只能請求「下一步」。
+    function applyAttempt(room,member,result) {
+      room.approved=-1;
       room.lastResult={...result,serial:++room.resultSerial};
       if(result.success) finish(room,true,result.reason);
       else {
-        member.errors++;room.stability=Math.max(0,room.stability-18);
+        member.errors++;
+        room.stability=Math.max(0,room.stability-18);
         room.stageScore=Math.max(-200,room.stageScore-35);
         room.remainingMs=Math.max(0,sleepClock(room)-15000);
         room.deadline=Date.now()+room.remainingMs;
-        if(room.stability<=0 || room.remainingMs<=0) finish(room,false,'裝置穩定度歸零或時間用完');
+        if(room.stability<=0 || room.remainingMs<=0)
+          finish(room,false,'裝置穩定度歸零或時間用完');
       }
-      broadcast(room);return {success:result.success,trace:result.trace};
+    }
+    handler(socket,'puzzle:run',()=>{
+      const {room,role,member}=playGuard(socket);
+      if(role!=='operator') throw Error('只有拆彈操作員可以執行');
+      if(room.approved!==room.revision) throw Error('需先請分析員核准目前版本');
+      if(room.stepPlan) throw Error('已開始單步執行，請繼續單步或修改程式重新核准');
+      room.attempts++;member.runs++;
+      const result=evaluate(room.puzzle);
+      room.stepState={position:0,total:simulate(room.puzzle).length,active:null,
+        watch:initialWatch(room.puzzle),finished:true};
+      applyAttempt(room,member,result);
+      broadcast(room);
+      return {success:result.success,trace:result.trace};
+    });
+    handler(socket,'puzzle:step',()=>{
+      const {room,role,member}=playGuard(socket);
+      if(role!=='operator') throw Error('只有拆彈操作員可以單步執行');
+      if(room.approved!==room.revision) throw Error('必須先請分析員核准此版本');
+      if(!room.stepPlan){
+        const result=evaluate(room.puzzle);
+        const items=simulate(room.puzzle);
+        if(!Array.isArray(items)||items.length<1||items.length>32)throw Error('單步執行長度不合法');
+        room.stepPlan={revision:room.revision,items,cursor:0,result};
+        room.attempts++;member.runs++;
+      }
+      const plan=room.stepPlan;
+      if(plan.revision!==room.revision)throw Error('程式已改動，請重新核准');
+      const active=plan.items[plan.cursor++];
+      room.stepState={position:plan.cursor,total:plan.items.length,active:structuredClone(active),
+        watch:structuredClone(active.watch||{}),finished:false};
+      // 第一個錯誤就停在該行；確保錯誤後不能繼續繞過伺服器懲罰。
+      const done=!active.ok||plan.cursor>=plan.items.length;
+      if(done){
+        room.stepState.finished=true;
+        const result=plan.result;
+        room.stepPlan=null;
+        applyAttempt(room,member,result);
+      }
+      broadcast(room);
+      return {position:room.stepState.position,total:room.stepState.total,
+        finished:room.stepState.finished,ok:active.ok};
     });
     handler(socket,'hint:request',()=>{
       const {room,member}=playGuard(socket);
@@ -289,7 +338,10 @@ function createGameServer() {
         sequence:['指令是一行一行由上往下執行。','分析員掌握真正的訊號順序，請先向對方確認。'],
         condition:['AND 要兩項都成立；OR 只要其中一項成立。','請逐一比較每一筆測試資料的正確開鎖結果。'],
         loop:['每次循環開始時先檢查 i < limit。','從起點開始，列出 i 每次增加 step 的值。'],
-        debug:['把問題拆成順序、判斷、迴圈三個部分。','觀察執行結果：紅色標記代表該區塊仍有 Bug。']
+        debug:['把問題拆成順序、判斷、迴圈三個部分。','觀察執行結果：紅色標記代表該區塊仍有 Bug。'],
+        variables:['先確認 A、B 的值，再按照乘法、整除、取餘數順序計算。','注意：// 是整除、% 是取餘數，最後要把結果指定給 C。'],
+        array:['Scratch 第 1 格對應 Python chips[0]。','請先查看目標索引，確定兩個位置都在 1～5。'],
+        function:['def 是定義函式，呼叫 cool_down() 才會執行。','四個函式內積木搭配一個呼叫，共只需要五個積木。']
       };
       const textHint=room.mode==='lab' ? '請向設計者詢問自訂目標，再逐步測試。' : hints[stageName(room)][index];
       room.hintsLeft--;member.hints++;

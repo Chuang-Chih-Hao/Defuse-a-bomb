@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#08111f">
   <meta name="description" content="雙人線上合作的程式設計教育遊戲：程式炸彈拆除專家">
   <title>程式炸彈拆除專家：最後倒數 | Defuse a Bomb</title>
-  <link rel="stylesheet" href="/style.css?v=1.1.1">
+  <link rel="stylesheet" href="/style.css?v=1.2.0">
 </head>
 <body>
   <div class="scanlines" aria-hidden="true"></div>
@@ -25,11 +25,11 @@
         <div class="eyebrow"><span class="pulse-dot"></span> CLASSIFIED / 教育訓練任務</div>
         <h1>程式炸彈<span>拆除專家</span><em>最後倒數</em></h1>
         <p>駭客入侵了未來城市的數位安全網路。兩名新進特勤人員必須交換情報、修正程式、同步合作，才能解除失控的虛擬核心。</p>
-        <div class="intro-metrics"><div><b>02</b><small>合作特工</small></div><div><b>04</b><small>核心任務</small></div><div><b>80<span>MIN</span></b><small>完整課程</small></div></div>
+        <div class="intro-metrics"><div><b>02</b><small>合作特工</small></div><div><b>07</b><small>核心任務</small></div><div><b>80<span>MIN</span></b><small>完整課程</small></div></div>
         <div class="mission-tags"><span>▣ 執行順序</span><span>◇ 條件判斷</span><span>∞ 迴圈</span><span>⌘ Debug</span></div>
       </section>
       <section class="portal-panel">
-        <div class="portal-head"><span>SECURE ACCESS</span><span class="mono">v1.1.1</span></div>
+        <div class="portal-head"><span>SECURE ACCESS</span><span class="mono">v1.2.0</span></div>
         <div class="portal-art" aria-hidden="true"><div class="radar radar-a"></div><div class="radar radar-b"></div><div class="radar-core">⌬</div><div class="crosshair h"></div><div class="crosshair v"></div></div>
         <h2>連線任務終端</h2>
         <p>老師建立房間，兩位學生使用不同裝置輸入相同房間代碼。</p>
@@ -50,7 +50,7 @@
       </div>
 
       <div class="mission-track" id="missionTrack" aria-label="關卡進度">
-        <span data-stage="0">01 / 線路</span><span data-stage="1">02 / 密碼</span><span data-stage="2">03 / 迴圈</span><span data-stage="3">04 / Debug</span>
+        <span data-stage="0">01 / 線路</span><span data-stage="1">02 / 密碼</span><span data-stage="2">03 / 迴圈</span><span data-stage="3">04 / Debug</span><span data-stage="4">05 / 變數</span><span data-stage="5">06 / 清單</span><span data-stage="6">07 / 函式</span>
       </div>
 
 
@@ -100,6 +100,7 @@
             <div class="circuit-node node-four" id="node3"><span>04</span></div>
             <div class="wire-line line-one"></div><div class="wire-line line-two"></div>
           </div>
+          <div id="stageVisual" class="stage-visual" hidden></div>
           <div class="stability-panel"><div><span>數位核心穩定度</span><strong id="stabilityValue">100%</strong></div><div class="stability-track"><div id="stabilityFill"></div></div></div>
           <div class="module-readout"><div><small>程式版本</small><strong id="revision">R00</strong></div><div><small>剩餘提示</small><strong id="hintLeft">02</strong></div><div><small>執行次數</small><strong id="attempts">00</strong></div><div><small>同步狀態</small><strong id="approval">待檢查</strong></div></div>
           <div id="tracePanel" class="trace-panel" aria-live="polite"></div>
@@ -111,19 +112,24 @@
             <div class="program-layout">
               <div class="visual-pane">
                 <div class="editor-top"><span>可視化程式方塊 · 直接修改參數</span><span id="editorMode" class="mono">只讀模式</span></div>
+                <div id="blockMeter" class="block-meter" hidden></div>
                 <div id="editor" class="editor-body"></div>
                 <div class="editor-buttons">
                   <button id="approveBtn" class="secondary-btn small-btn" title="分析員檢查隊友修改並同意執行">③ ✓ 分析員核准</button>
                   <button id="runBtn" class="primary-btn small-btn" title="操作員在分析員核准後執行">④ ▶ 操作員執行</button>
+                  <button id="stepBtn" class="secondary-btn small-btn" title="逐步執行一個積木並同步顯示變數">⤵ 單步執行</button>
                 </div>
                 <p class="editor-tip" id="editorTip">每次修改積木後，需要分析員重新核准。</p>
                 <button id="hintBtn" class="subtle-btn">◇ 提取系統提示（扣 25 分）</button>
               </div>
               <div class="python-pane" id="pythonPanel">
-                <div class="panel-heading"><h2>🐍 Python 對照</h2><span>僅供學習 · 不直接執行</span></div>
+                <div class="panel-heading"><h2>🐍 Python 3 對照</h2><span>逐行高亮 · 不執行任意程式碼</span></div>
                 <p class="python-help">左側每個積木，都對應下方一段 Python 程式。改動積木時會同步更新。</p>
-                <div class="code-head">logic.py <span>同步產生</span></div>
-                <pre id="codeOutput"><code># 等待程式積木</code></pre>
+                <div class="code-head">defuse.py <span>由受限積木產生</span></div>
+                <pre id="codeOutput" aria-label="Python 3 程式碼"><code># 等待程式積木</code></pre>
+                <div class="watch-heading"><strong>▣ 即時變數監視器</strong><span>WATCH WINDOW</span></div>
+                <div id="watchWindow" class="watch-window" aria-live="polite">等待程式執行…</div>
+                <div id="stepProgress" class="step-progress"></div>
               </div>
             </div>
           </section>
@@ -147,7 +153,7 @@
             <button data-teacher="start">▶ 開始任務</button><button data-teacher="pause">Ⅱ 暫停</button><button data-teacher="resume">▶ 恢復</button><button data-teacher="retry">↺ 重試此關</button>
             <button data-teacher="next">⇢ 下一關</button><button data-teacher="lab">⬡ 挑戰實驗室</button><button data-teacher="labNext">⇄ 實驗室換手</button><button data-teacher="reset" class="danger-btn">重設整場</button>
           </div>
-          <div class="stage-jump"><label for="stageSelect">指定關卡</label><select id="stageSelect"><option value="0">第一關 · 線路</option><option value="1">第二關 · 密碼</option><option value="2">第三關 · 迴圈</option><option value="3">第四關 · Debug</option></select><button id="jumpStage" class="secondary-btn small-btn">切換關卡</button></div>
+          <div class="stage-jump"><label for="stageSelect">指定關卡</label><select id="stageSelect"><option value="0">第一關 · 線路</option><option value="1">第二關 · 密碼</option><option value="2">第三關 · 迴圈</option><option value="3">第四關 · Debug</option><option value="4">第五關 · 變數運算</option><option value="5">第六關 · 清單索引</option><option value="6">第七關 · 自訂函式</option></select><button id="jumpStage" class="secondary-btn small-btn">切換關卡</button></div>
         </div>
         <div id="teacherSummary" class="teacher-summary"></div>
       </section>
@@ -165,6 +171,7 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=1.1.1" defer></script>
+  <script src="/app.js?v=1.2.0" defer></script>
+  <script src="/features.js?v=1.2.0" defer></script>
 </body>
 </html>

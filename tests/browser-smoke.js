@@ -215,7 +215,7 @@ async function main(){
       assert.ok(mobile.width>=width*.75,'Python code panel is unexpectedly narrow');
       assert.ok(mobile.right<=mobile.viewportWidth+2,'Python code clipped off screen');
       assert.ok(mobile.teamRight<=mobile.viewportWidth+2,'Team roster clipped off screen');
-      assert.ok(mobile.versionScript.includes('v=1.1.1'),'Browser is not using versioned JavaScript');
+      assert.ok(mobile.versionScript.includes('v=1.2.0'),'Browser is not using versioned JavaScript');
       await a.locator('#codeOutput').scrollIntoViewIfNeeded();
       await a.screenshot({path:(process.env.TARGET_URL?'render-':'')+'phone-'+width+'.png',fullPage:true});
       console.log('PASS mobile Python visibility and roster at '+width+'px: code height '+Math.round(mobile.height)+'px');
@@ -229,6 +229,75 @@ async function main(){
     assert.equal(desktop.rows,2,'Desktop team roster must display two distinct role/name rows');
     assert.ok(desktop.boxRight<=desktop.parentRight+2,'Desktop team roster must stay inside the banner');
     console.log('PASS desktop roster grid layout');
+
+
+    // 關卡 05：由分析員指揮操作員修改變數運算，單步 Watch 三端同步。
+    await teacher.locator('#stageSelect').selectOption('4');
+    await teacher.locator('#jumpStage').click();
+    await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('能量分配站'))));
+    assert.match(await a.locator('.mission-rule').textContent(),/C = /);
+    assert.equal(await b.locator('#codeOutput').textContent(),await a.locator('#codeOutput').textContent());
+    await b.locator('#editor [data-field=source]').selectOption('A');
+    await b.locator('#editor [data-field=factor]').fill('2');
+    await b.locator('#editor [data-field=factor]').press('Tab');
+    await b.locator('#editor [data-field=modulo]').fill('5');
+    await b.locator('#editor [data-field=modulo]').press('Tab');
+    await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('C = (A * 2 // 1) % 5'))));
+    await b.locator('[data-block-id=vars-modulo]').hover();
+    await b.waitForFunction(()=>document.querySelector('#codeOutput .code-line.logic-hover'));
+    await a.locator('#approveBtn').click();
+    await b.waitForFunction(()=>!document.querySelector('#stepBtn')?.disabled);
+    for(let i=0;i<4;i++){
+      await b.locator('#stepBtn').click();
+      await b.waitForFunction(n=>document.querySelector('#stepProgress')?.textContent.includes('步驟 '+n+'／'),i+1);
+    }
+    await teacher.waitForFunction(()=>document.querySelector('#systemStatus')?.textContent.includes('安全解除'));
+    assert.match(await b.locator('#watchWindow').textContent(),/source_value|temp|C/);
+    console.log('PASS stage 5: variables, Python hover pairing, synchronized single-step Watch Window');
+
+    // 關卡 06：Scratch 第一格對應 Python chips[0]。
+    await teacher.locator('[data-teacher=next]').click();
+    await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('晶片陣列鎖'))));
+    assert.match(await a.locator('#rolePill').textContent(),/拆彈操作員/);
+    assert.match(await a.locator('#editor').textContent(),/Scratch/);
+    await a.locator('#editor [data-field=first]').fill('1');
+    await a.locator('#editor [data-field=first]').press('Tab');
+    await a.locator('#editor [data-field=second]').fill('5');
+    await a.locator('#editor [data-field=second]').press('Tab');
+    await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('chips[0], chips[4]'))));
+    await b.locator('#approveBtn').click();
+    await a.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
+    await a.locator('#runBtn').click();
+    await teacher.waitForFunction(()=>document.querySelector('#systemStatus')?.textContent.includes('安全解除'));
+    console.log('PASS stage 6: chip list swapping and Scratch/Python index difference');
+
+    // 關卡 07：函式內四步驟，主程式只呼叫一次 cool_down()。
+    await teacher.locator('[data-teacher=next]').click();
+    await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('緊急冷卻協議'))));
+    assert.match(await b.locator('#blockMeter').textContent(),/8／6/);
+    await b.locator('#editor [data-fmove="0:1"]').click();
+    await b.waitForFunction(()=>document.querySelector('#editor [data-block-id="body-0"]')?.textContent.includes('清除快取'));
+    await b.locator('#editor [data-fmove="1:1"]').click();
+    await b.waitForFunction(()=>document.querySelector('#editor [data-block-id="body-1"]')?.textContent.includes('開啟散熱'));
+    await b.locator('#editor [data-field=mainMode]').selectOption('call');
+    await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('def cool_down():\n    purge()\n    vent()\n    sync()\n    lock()\n\ncool_down()'))));
+    assert.match(await b.locator('#blockMeter').textContent(),/5／6/);
+    await a.locator('#approveBtn').click();
+    await b.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
+    await b.locator('#runBtn').click();
+    await teacher.waitForFunction(()=>document.querySelector('#systemStatus')?.textContent.includes('安全解除'));
+    console.log('PASS stage 7: function definition, block budget and main call');
+
+    // 國二模式：分析員只能讀 Python 目標，操作員沒有答案。
+    await teacher.locator('#difficultySelect').selectOption('advanced');
+    await teacher.locator('#saveConfig').click();
+    await teacher.locator('#stageSelect').selectOption('4');
+    await teacher.locator('#jumpStage').click();
+    await a.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('能量分配站') &&
+      document.querySelector('.mission-target')?.textContent.includes('C ='));
+    assert.match(await a.locator('.mission-target').textContent(),/C = \(B \* 3 \/\/ 2\) % 5/);
+    assert.equal(await b.locator('.mission-target').count(),0);
+    console.log('PASS advanced analyst code-only rule and private target Python');
 
     await teacher.screenshot({path:process.env.TARGET_URL?'render-teacher-screenshot.png':'teacher-screenshot.png',fullPage:true});
     assert.deepEqual(problems,[],'No browser runtime exceptions');

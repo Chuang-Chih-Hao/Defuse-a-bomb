@@ -1,0 +1,142 @@
+'use strict';
+const {test,after}=require('node:test');
+const assert=require('node:assert/strict');
+const {makePuzzle,modify,evaluate,toPython,visiblePuzzle,simulate,STAGES}=require('../src/engine');
+const extra=require('../src/advanced');
+const {createGameServer,rooms}=require('../src/server');
+const {io:Client}=require('socket.io-client');
+
+test('七個主線關卡均可建立，Python 只生成而不執行學生程式',()=>{
+  assert.deepEqual(STAGES,['sequence','condition','loop','debug','variables','array','function']);
+  assert.equal(toPython(makePuzzle('variables')).includes('//'),true);
+  assert.match(toPython(makePuzzle('array')),/chips\[1\]/);
+  assert.match(toPython(makePuzzle('function')),/def cool_down\(\):/);
+});
+test('第五關：隨機 A/B/C、乘除取餘與精確規則檢查',()=>{
+  const p=extra.make('variables',true,()=>0.6);
+  assert.equal(p.initial.A,5);assert.equal(p.initial.B,5);
+  assert.equal(evaluate(p).success,false);
+  modify(p,{blocks:{source:'B',factor:3,divisor:2,modulo:5}});
+  assert.equal(evaluate(p).success,true);
+  const steps=simulate(p);
+  assert.equal(steps.length,4);
+  assert.equal(steps.at(-1).watch.C,Math.floor(5*3/2)%5);
+  assert.equal(steps.at(-1).line,4);
+  assert.equal(steps.at(-1).blockId,'vars-modulo');
+  assert.throws(()=>modify(p,{blocks:{source:'A',factor:2,divisor:0,modulo:5}}),/允許/);
+});
+test('第六關：1 起算／0 起算與 IndexError 白話文',()=>{
+  const p=makePuzzle('array',false);
+  const before=p.initial.slice();
+  modify(p,{blocks:{first:6,second:1}});
+  const err=evaluate(p);
+  assert.equal(err.success,false);
+  assert.match(err.reason,/IndexError|索引/);
+  assert.match(err.trace[0].title,/0～4/);
+  const steps=simulate(p);
+  assert.equal(steps.length,1);
+  assert.equal(steps[0].ok,false);
+  modify(p,{blocks:{first:1,second:5}});
+  assert.equal(evaluate(p).success,true);
+  assert.deepEqual(p.initial,before,'驗證不能修改題目原始晶片');
+  assert.match(toPython(p),/chips\[0\], chips\[4\] = chips\[4\], chips\[0\]/);
+});
+test('第七關：定義函式、積木上限、主程式必須呼叫',()=>{
+  const p=makePuzzle('function',true);
+  assert.equal(p.maxBlocks,6);
+  assert.equal(extra.size(p),8);
+  assert.equal(evaluate(p).success,false);
+  modify(p,{blocks:{body:['PURGE','VENT','SYNC','LOCK'],mainMode:'direct'}});
+  assert.equal(evaluate(p).success,false,'直接堆四個動作不能通關');
+  modify(p,{blocks:{body:['PURGE','VENT','SYNC','LOCK'],mainMode:'call'}});
+  assert.equal(extra.size(p),5);
+  assert.equal(evaluate(p).success,true);
+  assert.match(toPython(p),/def cool_down\(\):\n    purge\(\)\n    vent\(\)\n    sync\(\)\n    lock\(\)\n\ncool_down\(\)/);
+  assert.equal(simulate(p).at(-1).blockId,'main-call');
+});
+test('進階分析員只收到 Python 讀碼挑戰；操作員不取得答案',()=>{
+  for(const stage of STAGES){
+    const p=makePuzzle(stage,true);
+    const analyst=visiblePuzzle(p,true),operator=visiblePuzzle(p,false);
+    assert.ok(analyst.briefing.targetPython,stage);
+    assert.match(analyst.briefing.rule,/Python/);
+    assert.equal(operator.briefing,undefined);
+    assert.equal(operator.objective,undefined);
+    assert.equal(operator.answer,undefined);
+    assert.equal(operator.target,undefined);
+    assert.ok(operator.python);
+    assert.ok(operator.lineMap);
+    assert.equal(operator.maxBlocks,6);
+  }
+});
+test('進階 if/elif/else 產生合法縮排 Python',()=>{
+  const p=makePuzzle('condition',true);
+  const code=toPython(p);
+  assert.match(code,/^if \(/);
+  assert.match(code,/\nelif \(/);
+  assert.match(code,/\nelse:/);
+  assert.match(code,/\n    unlock\(\)/);
+});
+const game=createGameServer();
+const clients=[];
+let address;
+async function connect(){
+  if(!address)address='http://127.0.0.1:'+await game.listen(0);
+  const socket=Client(address,{transports:['websocket'],reconnection:false});
+  await new Promise((resolve,reject)=>{socket.once('connect',resolve);socket.once('connect_error',reject);});
+  clients.push(socket);return socket;
+}
+const send=(socket,event,data={})=>new Promise(resolve=>socket.emit(event,data,resolve));
+after(async()=>{clients.forEach(c=>c.disconnect());await game.close();});
+test('三人 Socket.IO：七關角色隔離、單步 Watch、失誤與教師切換',async()=>{
+  const teacher=await connect(),a=await connect(),b=await connect();
+  const created=await send(teacher,'room:create');
+  const code=created.code;
+  assert.equal((await send(a,'room:join',{code,nickname:'分析同學'})).ok,true);
+  assert.equal((await send(b,'room:join',{code,nickname:'操作同學'})).ok,true);
+  assert.equal((await send(teacher,'teacher:action',{action:'config',difficulty:'advanced'})).ok,true);
+  assert.equal((await send(teacher,'teacher:action',{action:'start'})).ok,true);
+  assert.equal((await send(teacher,'teacher:action',{action:'stage',index:4})).ok,true);
+  let room=rooms.get(code);
+  const p=room.puzzle;
+  assert.equal(p.kind,'variables');
+  assert.equal(room.difficulty,'advanced');
+  assert.equal((await send(a,'puzzle:step')).ok,false);
+  assert.equal((await send(b,'puzzle:step')).ok,false,'未經分析員核准不得單步');
+  const goal={...p.answer};
+  assert.equal((await send(b,'puzzle:edit',{blocks:goal})).ok,true);
+  assert.equal((await send(a,'analysis:approve')).ok,true);
+  assert.equal((await send(b,'puzzle:step')).ok,true);
+  assert.equal(room.stepState.position,1);
+  assert.equal(room.stepState.active.blockId,'vars-source');
+  assert.equal(room.stepState.watch.source_value,room.puzzle.initial[goal.source]);
+  assert.equal(room.stepState.total,4);
+  assert.equal((await send(b,'puzzle:run')).ok,false,'單步執行中不允許重複計分');
+  for(let i=0;i<3;i++)assert.equal((await send(b,'puzzle:step')).ok,true);
+  assert.equal(room.status,'won');
+  assert.equal(room.stepState.finished,true);
+  assert.equal((await send(teacher,'teacher:action',{action:'next'})).ok,true);
+  assert.equal(room.puzzle.kind,'array');
+  // 第 6 關換角色：玩家 A 操作，玩家 B 分析。
+  assert.equal((await send(b,'puzzle:edit',{blocks:{first:2,second:4}})).ok,false);
+  assert.equal((await send(a,'puzzle:edit',{blocks:{first:6,second:2}})).ok,true);
+  assert.equal((await send(b,'analysis:approve')).ok,true);
+  const errStep=await send(a,'puzzle:step');
+  assert.equal(errStep.ok,true);
+  assert.equal(errStep.finished,true);
+  assert.equal(room.status,'active','單次索引錯誤只扣穩定度，不會直接結束遊戲');
+  assert.equal(room.stability,82);
+  assert.match(room.stepState.active.hint,/IndexError/);
+  assert.equal((await send(a,'puzzle:edit',{blocks:{...room.puzzle.answer}})).ok,true);
+  assert.equal((await send(b,'analysis:approve')).ok,true);
+  assert.equal((await send(a,'puzzle:run')).success,true);
+  assert.equal(room.status,'won');
+  assert.equal((await send(teacher,'teacher:action',{action:'next'})).ok,true);
+  assert.equal(room.puzzle.kind,'function');
+  assert.equal((await send(a,'analysis:approve')).ok,true);
+  assert.equal((await send(b,'puzzle:edit',{blocks:{body:['PURGE','VENT','SYNC','LOCK'],mainMode:'call'}})).ok,true);
+  assert.equal((await send(a,'analysis:approve')).ok,true);
+  assert.equal((await send(b,'puzzle:run')).success,true);
+  assert.equal(room.status,'won');
+  assert.equal((await send(teacher,'teacher:action',{action:'next'})).ok,false,'只有七關');
+});

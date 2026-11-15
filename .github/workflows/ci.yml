@@ -33,6 +33,7 @@ jobs:
           curl --fail --silent http://127.0.0.1:3000/health
           curl --fail --silent http://127.0.0.1:3000/ > /dev/null
           curl --fail --silent http://127.0.0.1:3000/app.js > /dev/null
+          curl --fail --silent http://127.0.0.1:3000/features.js > /dev/null
       - name: Install real Chromium for browser tests
         run: |
           npm install --no-save playwright@1.56.1
@@ -51,13 +52,14 @@ jobs:
           done
           grep -q '"ok":true' /tmp/live-health.json
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/api/info" | tee /tmp/live-info.json
-          grep -q '"version":"1.1.1"' /tmp/live-info.json
+          grep -q '"version":"1.2.0"' /tmp/live-info.json
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/" | grep -q '數位危機處理局'
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/app.js" | grep -q 'socket'
+          curl --fail --silent --show-error --max-time 30 "$TARGET_URL/features.js" | grep -q 'Watch Window'
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/socket.io/?EIO=4&transport=polling" -o /tmp/engine-handshake.txt
           grep -q '^0' /tmp/engine-handshake.txt
-          curl --fail --silent --show-error -I "$TARGET_URL/app.js?v=1.1.1" | tr -d '\r' | grep -i 'cache-control: no-store'
-          curl --fail --silent --show-error "$TARGET_URL/" | grep -q 'app.js?v=1.1.1'
+          curl --fail --silent --show-error -I "$TARGET_URL/app.js?v=1.2.0" | tr -d '\r' | grep -i 'cache-control: no-store'
+          curl --fail --silent --show-error "$TARGET_URL/" | grep -q 'app.js?v=1.2.0'
           echo "PASS production asset cache-busting, HTTP health and Engine.IO handshake"
       - name: Public Render three-user Chromium gameplay
         env:

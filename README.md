@@ -1,6 +1,6 @@
 # 程式炸彈拆除專家：最後倒數（Defuse a Bomb）
 
-**v1.1.1 · 繁體中文 · 國中一年級 · 雙人線上合作程式設計教學遊戲**
+**v1.2.0 · 繁體中文 · 國一與國二 · 雙人線上合作程式設計教學遊戲**
 
 正式網站：https://defuse-a-bomb.onrender.com
 
@@ -12,7 +12,7 @@ GitHub：https://github.com/Chuang-Chih-Hao/Defuse-a-bomb
 
 - 適用：國一學生兩人，具 Scratch 入門經驗，能力可以不同。
 - 教學形式：40 分鐘上課、10 分鐘休息、40 分鐘上課，老師可在中間暫停倒數。
-- 學習：**Sequence 執行順序**、**if/else 與 AND/OR 布林邏輯**、**for 迴圈**、**Debug 除錯與追蹤**。
+- 學習：**Sequence 執行順序**、**if/elif/else 條件判斷**、**for 迴圈**、**Debug**、**變數與運算**、**清單索引**、**自訂函式**。
 - 操作工具：**Scratch 風格視覺積木 + 旁邊的唯讀 Python 對照**。修改積木會即時更新 Python 字串，不執行學生輸入的任意 Python/JavaScript。
 - 與 Scratch 類似：藍色動作積木、紫色 C 形「如果／否則」積木、橘色 C 形重複積木、事件帽型積木；可調參數、重新排序與實際執行驗證。
 
@@ -28,7 +28,7 @@ GitHub：https://github.com/Chuang-Chih-Hao/Defuse-a-bomb
 
 **提醒**：流程條是視覺指引；分析員不需要額外按「已讀」。實際權限由伺服器驗證，操作員才能修改／執行，分析員才能核准／送出分析訊息。
 
-## 3. 四大主線關卡
+## 3. 七大主線關卡
 
 | 關卡 | 學習重點 | Scratch 積木玩法 | Python 觀察 |
 |---|---|---|---|
@@ -36,12 +36,36 @@ GitHub：https://github.com/Chuang-Chih-Hao/Defuse-a-bomb
 | ② 邏輯密碼鎖 | IF / ELSE、AND / OR | 改顏色、能源門檻與布林運算；測試不同輸入 | if … and/or …: |
 | ③ 無限倒數陷阱 | for 迴圈 | 調整起點、終點、步進；執行剛好的次數 | for i in range(start, stop, step): |
 | ④ 駭客的最終程式 | Debug | 同時修正順序、條件式、迴圈 | Python 多段程式對照 |
+| ⑤ 能量分配站 | 變數賦值、乘法、整除 `//`、餘數 `%` | A／B／C 槽初始數值每次生成，由分析員指揮設定 C | `C = (A * 2 // 1) % 5` |
+| ⑥ 晶片陣列鎖 | 清單與索引 | 五色晶片、選擇兩個位置交換；可觀察 IndexError | `chips[0], chips[4] = chips[4], chips[0]` |
+| ⑦ 緊急冷卻協議 | `def` 函式定義與呼叫 | 先排序四步函式內容，再用一個 `cool_down()` 呼叫；最多 6 個積木 | `def cool_down():`、`cool_down()` |
 
 基礎模式使用較少步驟，進階模式增加模組、條件群組及迭代。執行後有動畫、可查看每次指令的執行追蹤；失敗後可修正再試。
 
 **計分**：錯誤操作減 18 點穩定度、扣 15 秒、扣 35 分；每關兩次提示，提示扣 25 分。成功有分數與時間獎勵，失敗可請老師重試。
 
-## 4. 第二節：挑戰實驗室
+## 4. Python 3 轉譯、單步執行與監視器
+
+遊戲右側為 **Python 3 對照（`defuse.py`）**，從有限積木結構即時產生，縮排採四個空白，涵蓋賦值、if/elif/else、for/range、清單交換與 def 函式。這是**教學用 Python 對照，不允許輸入／執行任意 Python**，避免任意程式碼執行風險。
+
+- **滑鼠同步高亮**：滑鼠滑過 Scratch 積木，右側對應的 Python 行號亮起；滑過 Python 程式行，也能找到相應積木。
+- **單步執行**：分析員按「核准」後，操作員按「單步執行」，伺服器一次執行一個已驗證積木／情境，並同步推送目前積木 id、Python 行號、Watch 快照與錯誤提示給三個房間成員。
+- **Watch Window**：第五關可看到 A、B、C、source_value、temp；第六關即時看 chips；第七關觀察步驟數與主程式積木數。
+- **錯誤停止**：單步遇到第一個失敗項立即停止並由伺服器扣除穩定度／時間，操作員必須修改積木重新經分析員核准。第六關輸入位置 6（合法 1～5）會出現白話的 IndexError。
+- **執行安全**：伺服器對每個輸入欄位、整數範圍、排列及授權角色進行驗證，最多追蹤 32 步，並不啟動任何 Python 直譯器或 Javascript eval。
+
+## 5. 國一／國二難度分級
+
+| 模式 | 分析員資訊 | 操作員 | 額外限制 |
+|---|---|---|---|
+| 基礎（國一） | 白話任務、規則及引導步驟 | 操作積木並觀察完整 Python | 重視順序與理解 |
+| 進階（國二） | **僅提供目標 Python 程式碼**；必須讀碼口頭說明 | 操作積木，須向分析員詢問 | 積木數量提示／上限 6；穩定度低於 60% 時，右側部分運算子顯示為 `???` |
+
+雜訊只影響右側的視覺顯示，不會修改伺服器真正的運算或積木資料。教師可在非執行狀態切換模式，然後重新開始關卡。
+
+**教學節奏**：原本 80 分鐘課程可以優先進行前四關與實驗室；第五至七關可以安排下一堂課，或由教師依學生進度使用「指定關卡」操作。七關不強制壓縮到同一堂 80 分鐘內。
+
+## 6. 第二節：挑戰實驗室
 
 老師按 **挑戰實驗室**，會在設計者的畫面解鎖三種任務。**分析員設計，操作員解題**：
 
@@ -59,7 +83,7 @@ GitHub：https://github.com/Chuang-Chih-Hao/Defuse-a-bomb
 
 實驗室還會驗證：顏色不重複、門檻範圍合理、發布後才開啟倒數、發布中的題目不能重複覆蓋、老師暫停中的任務不能被新題覆蓋。**未發布的草稿選擇會保留**，不會因房間同步而重設；發布後會明確通知已發布、等待操作員修改。挑戰結束後可發布下一題，也可請老師按 **實驗室換手**，交換設計者與解題者。
 
-## 5. 教師控制台
+## 7. 教師控制台
 
 只有持有建立房間時產生的私密教師憑證才能操作控制台。可以：
 
@@ -70,7 +94,7 @@ GitHub：https://github.com/Chuang-Chih-Hao/Defuse-a-bomb
 
 已啟動的關卡不能直接改難度／分鐘數，須在下一回合生效；避免教學中未預期的時間改動。
 
-## 6. 建議 80 分鐘課程節奏
+## 8. 建議 80 分鐘課程節奏
 
 | 時間 | 教學任務 |
 |---|---|
@@ -85,7 +109,7 @@ GitHub：https://github.com/Chuang-Chih-Hao/Defuse-a-bomb
 | 25～35 | 交換角色、重新挑戰 |
 | 35～40 | 分數結算、文字學習回饋 |
 
-## 7. 本機安裝
+## 9. 本機安裝
 
 需要 Node.js 20+、npm：
 
@@ -118,7 +142,7 @@ node tests/browser-smoke.js
 
 驗證正式 Render 網站時可設置環境變數 TARGET_URL=https://defuse-a-bomb.onrender.com；GitHub Actions 在每次 main 推送時會自動執行本地／正式站三人流程與 HTTP/WebSocket 檢查。詳見 [Game CI](https://github.com/Chuang-Chih-Hao/Defuse-a-bomb/actions)。
 
-## 8. Render 自動部署設定
+## 10. Render 自動部署設定
 
 **既有服務已建立，請沿用，不要再建立第二個：** https://defuse-a-bomb.onrender.com
 
@@ -132,7 +156,7 @@ node tests/browser-smoke.js
 
 每次 GitHub main commit 可觸發自動部署。部署期間會中斷進行中的記憶體房間，**不要在正式授課中部署**。
 
-## 9. 安全、架構與限制
+## 11. 安全、架構與限制
 
 - 前端原生 HTML/CSS/JavaScript，伺服器 Node.js + Express + Socket.IO；教學用程式透過安全且受限的結構化指令模型執行，完全不 eval 任意 JavaScript / Python。
 - 教師與兩位學生各有獨立高熵 token；伺服器驗證角色、權限、核准版本與輸入規則。操作員不會收到機密正確答案。
@@ -140,27 +164,38 @@ node tests/browser-smoke.js
 - 單台 Node.js 記憶體存放房間；**Render 重啟、休眠或重新部署後房間會消失**。不支援多執行個體／持久化記錄。請上課前建立新房間，並使用 HTTPS。
 - 測試為自動化模擬三個獨立瀏覽器環境，不等同真人使用不同裝置及完整 80 分鐘的課堂驗證。
 
-## 10. 專案檔案
+## 12. 專案檔案
 
 ~~~text
 public/
   index.html           遊戲、任務卡、合作流程、積木與 Python UI
   style.css            動畫、Scratch 風格、RWD
-  app.js               Socket.IO 同步、角色提示、編輯器與實驗室預覽
+  app.js               Socket.IO 同步、角色提示、原四關編輯器與實驗室預覽
+  features.js          進階三關 Scratch 積木、Python 行高亮、Watch Window 前端擴充
 src/
-  engine.js            安全關卡判定、結構化任務提示、Python 產生器
+  engine.js            主線七關入口、安全判定、結構化任務提示、Python 轉譯、行號對照
+  advanced.js          新增變數、陣列、函式關卡的受限積木 VM 與單步模擬
   server.js            Express、Socket.IO、角色權限、計分和教師控制
 tests/
   engine.test.js       運算邏輯、AND/OR 回歸、Python 輸出與提示資訊安全
   multiplayer.test.js  真正多人同步、教師操作、失敗重試、暫停保護
-  browser-smoke.js     三個隔離瀏覽器走完四關、實驗室和重連
+  browser-smoke.js     三個隔離瀏覽器走完七關、實驗室和重連
+  extended.test.js     新三關、單步同步、索引越界、資訊隔離與角色權限
 .github/workflows/ci.yml  持續整合與 Render 正式站驗證
 render.yaml            Render Blueprint 選用範本
 package.json
 README.md
 ~~~
 
-## 11. 版本更新
+## 13. 版本更新
+
+### v1.2.0 — 2026-11-15
+- 新增第 5 關 A／B／C 變數與乘法、整除、餘數運算；第 6 關五色清單交換和索引錯誤；第 7 關四步函式定義與單一主程式呼叫。
+- 整合 Python 3 對照 `defuse.py`，包括 if/elif/else、range、變數賦值、清單和 def；新增行號與積木雙向高亮。
+- 新增三裝置同步的伺服器單步執行及 Watch Window，錯誤行即停並顯示國中生能理解的提示。
+- 進階模式分析員改為 Python 讀碼挑戰，並增加積木預算提示與低穩定度運算子雜訊。
+- README、Node.js 測試及真實 Chromium 三人端到端測試擴充至七關。
+
 
 ### v1.1.1 — 2026-11-15
 - 調整桌面版右上角隊伍資訊的兩列姓名／角色格線，行動摘要獨立一行，避免原本狹窄框內換行雜亂。
