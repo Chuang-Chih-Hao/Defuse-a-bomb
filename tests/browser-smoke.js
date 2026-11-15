@@ -11,6 +11,7 @@ async function main(){
   const port=game ? await game.listen(0) : null;
   const url=process.env.TARGET_URL || 'http://127.0.0.1:'+port;
   const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+  let browserPages=[];
   try {
     const contextTeacher=await browser.newContext({viewport:{width:1440,height:900}});
     const contextA=await browser.newContext({viewport:{width:1250,height:950}});
@@ -18,8 +19,15 @@ async function main(){
     const teacher=await contextTeacher.newPage();
     const a=await contextA.newPage();
     const b=await contextB.newPage();
-    for(const page of [teacher,a,b])page.on('pageerror',e=>problems.push(e.stack||e.message));
+    browserPages=[teacher,a,b];
+    for(const [index,page] of browserPages.entries()){
+      page.on('pageerror',e=>{problems.push(e.stack||e.message);console.error('BROWSER PAGE ERROR',index,e.message);});
+      page.on('console',msg=>{if(msg.type()==='error')console.error('BROWSER CONSOLE',index,msg.text());});
+      page.on('requestfailed',req=>console.error('BROWSER REQUEST FAILED',index,req.url(),req.failure()?.errorText));
+    }
     await Promise.all([teacher.goto(url,{waitUntil:'domcontentloaded'}),a.goto(url,{waitUntil:'domcontentloaded'}),b.goto(url,{waitUntil:'domcontentloaded'})]);
+    await Promise.all(browserPages.map(page=>page.waitForFunction(()=>document.querySelector('#network')?.classList.contains('online'),null,{timeout:30000})));
+    console.log('PASS all 3 public browser sockets connected to '+url);
     await teacher.locator('#createBtn').click();
     await teacher.waitForFunction(()=>document.querySelector('#roomLabel')?.textContent?.length===6&&document.querySelector('#roomLabel')?.textContent!=='------');
     const code=await teacher.locator('#roomLabel').textContent();
@@ -130,6 +138,14 @@ async function main(){
     await teacher.screenshot({path:process.env.TARGET_URL?'render-teacher-screenshot.png':'teacher-screenshot.png',fullPage:true});
     assert.deepEqual(problems,[],'No browser runtime exceptions');
     console.log('PASS browser: teacher dashboard, students, room and visual UI');
+  }catch(error){
+    for(const [index,page] of browserPages.entries()){
+      try{
+        console.error('BROWSER STATUS',index,'network',await page.locator('#network').textContent(),'toast',await page.locator('#toast').textContent());
+        if(process.env.TARGET_URL)await page.screenshot({path:'render-debug-'+index+'.png',fullPage:true});
+      }catch(e){console.error('Failed to collect browser diagnostic',index,e.message);}
+    }
+    throw error;
   }finally{await browser.close();}
 }
 main().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(game)await game.close();});

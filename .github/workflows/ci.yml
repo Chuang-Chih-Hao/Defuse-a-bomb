@@ -50,7 +50,9 @@ jobs:
           grep -q '"version":"1.0.0"' /tmp/live-info.json
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/" | grep -q '數位危機處理局'
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/app.js" | grep -q 'socket'
-          echo "PASS public Render HTTPS, /health, /api/info, HTML and client JS"
+          curl --fail --silent --show-error --max-time 30 "$TARGET_URL/socket.io/?EIO=4&transport=polling" -o /tmp/engine-handshake.txt
+          grep -q '^0' /tmp/engine-handshake.txt
+          echo "PASS public Render HTTPS, /health, /api/info, HTML, JS and Engine.IO handshake"
       - name: Public Render three-user Chromium gameplay
         env:
           TARGET_URL: https://defuse-a-bomb.onrender.com
@@ -68,4 +70,5 @@ jobs:
           path: |
             teacher-screenshot.png
             render-teacher-screenshot.png
+            render-debug-*.png
           if-no-files-found: ignore

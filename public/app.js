@@ -72,6 +72,8 @@ function send(event,detail={},quiet=false){
   });
 }
 function updateConnection(){
+  $('createBtn').disabled=!socket.connected;
+  $('joinBtn').disabled=!socket.connected;
   $('network').classList.toggle('online',socket.connected);
   $('network').innerHTML='<i></i> '+(socket.connected?'已連線':'連線中斷');
 }
