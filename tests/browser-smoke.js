@@ -186,6 +186,47 @@ async function main(){
     assert.match(await a.locator('#rolePill').textContent(),/拆彈操作員/);
     console.log('PASS browser refresh reconnect');
 
+    // Regression: mobile devices must display real Python, not an empty box.
+    // The original issue occurred when a fresh HTML page reused stale cached JS.
+    for(const width of [390,585]){
+      await a.setViewportSize({width,height:844});
+      await a.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('key_color == "YELLOW" or power > 80'),null,{timeout:12000});
+      const mobile=await a.evaluate(()=>{
+        const node=document.querySelector('#codeOutput');
+        const python=document.querySelector('#pythonPanel');
+        const banner=document.querySelector('#turnPartner');
+        const rect=node.getBoundingClientRect();
+        const panel=python.getBoundingClientRect();
+        const team=banner.getBoundingClientRect();
+        const style=getComputedStyle(node);
+        return {code:node.textContent,display:style.display,visibility:style.visibility,
+          width:rect.width,height:rect.height,right:rect.right,panelWidth:panel.width,
+          panelRight:panel.right,teamRight:team.right,viewportWidth:window.innerWidth,
+          overflow:document.documentElement.scrollWidth-window.innerWidth,
+          versionScript:document.querySelector('script[src*="/app.js"]')?.src};
+      });
+      assert.match(mobile.code,/if \(key_color == "YELLOW" or power > 80\):/);
+      assert.equal(mobile.display,'block');
+      assert.notEqual(mobile.visibility,'hidden');
+      assert.ok(mobile.height>=90,'Python code panel must have visible height on '+width+'px phone');
+      assert.ok(mobile.width>=width*.75,'Python code panel is unexpectedly narrow');
+      assert.ok(mobile.right<=mobile.viewportWidth+2,'Python code clipped off screen');
+      assert.ok(mobile.teamRight<=mobile.viewportWidth+2,'Team roster clipped off screen');
+      assert.ok(mobile.versionScript.includes('v=1.1.1'),'Browser is not using versioned JavaScript');
+      await a.locator('#codeOutput').scrollIntoViewIfNeeded();
+      await a.screenshot({path:(process.env.TARGET_URL?'render-':'')+'phone-'+width+'.png',fullPage:true});
+      console.log('PASS mobile Python visibility and roster at '+width+'px: code height '+Math.round(mobile.height)+'px');
+    }
+    await a.setViewportSize({width:1250,height:950});
+    const desktop=await a.evaluate(()=>{
+      const box=document.querySelector('#turnPartner'),parent=document.querySelector('#turnBanner');
+      return {boxRight:box.getBoundingClientRect().right,parentRight:parent.getBoundingClientRect().right,
+        rows:box.querySelectorAll('.team-roster-line').length};
+    });
+    assert.equal(desktop.rows,2,'Desktop team roster must display two distinct role/name rows');
+    assert.ok(desktop.boxRight<=desktop.parentRight+2,'Desktop team roster must stay inside the banner');
+    console.log('PASS desktop roster grid layout');
+
     await teacher.screenshot({path:process.env.TARGET_URL?'render-teacher-screenshot.png':'teacher-screenshot.png',fullPage:true});
     assert.deepEqual(problems,[],'No browser runtime exceptions');
     console.log('PASS browser: teacher dashboard, students, room and visual UI');
