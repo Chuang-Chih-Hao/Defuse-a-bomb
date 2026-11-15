@@ -15,6 +15,7 @@ const STAGE_HELP={
   debug:'系統核心同時存在順序、if 判斷與 for 迴圈三類 Bug。<br>分析員負責檢查規格，操作員修改三處錯誤，再觀察追蹤結果。',
   lab:'設計者自訂數位邏輯規則，另一人負責破解。<br>內建三種任務：自訂執行順序、改造布林條件、設計迴圈陷阱。'
 };
+const DEFUSE_UI_VERSION='1.1.1';
 const socket=io({reconnection:true,reconnectionDelay:500,reconnectionDelayMax:4000});
 let saved=null;
 try{saved=JSON.parse(localStorage.getItem('defuse-identity')||'null');}catch{}
@@ -256,7 +257,11 @@ function renderTurn(){
     }
   }
   const doing=phase==='done'?'已結算':phase==='paused'?'已暫停':(snapshot.mode==='lab'&&!snapshot.puzzle)?'設計中':actionTexts[phase];
-  $('turnPartner').textContent='分析員：'+analystName+'　｜　操作員：'+operatorName+'　｜　'+doing;
+  $('turnPartner').innerHTML=
+    '<div class="team-roster-title">本關隊伍配置</div>'+
+    '<div class="team-roster-line"><span class="team-role analyst">🔎 分析員</span><strong title="'+escapeHtml(analystName)+'">'+escapeHtml(analystName)+'</strong></div>'+
+    '<div class="team-roster-line"><span class="team-role operator">🧩 操作員</span><strong title="'+escapeHtml(operatorName)+'">'+escapeHtml(operatorName)+'</strong></div>'+
+    '<div class="team-step-caption" title="'+escapeHtml(doing)+'">'+escapeHtml(doing)+'</div>';
   const order=['brief','edit','approve','run'];
   const current=order.indexOf(phase);
   document.querySelectorAll('#workflowSteps [data-phase]').forEach((el,i)=>{

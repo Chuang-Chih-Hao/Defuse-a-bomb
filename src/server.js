@@ -111,9 +111,14 @@ function createGameServer() {
   const app = express();
   app.disable('x-powered-by');
   app.get('/health', (_, res) => res.json({ok:true,service:'defuse-a-bomb',rooms:rooms.size,uptime:Math.round(process.uptime())}));
-  app.get('/api/info', (_, res) => res.json({name:'程式炸彈拆除專家：最後倒數',version:'1.1.0',stages:STAGES}));
-  app.use(express.static(path.join(__dirname,'../public'),{maxAge:'1h'}));
-  app.get('*', (req,res) => res.sendFile(path.join(__dirname,'../public/index.html')));
+  app.get('/api/info', (_, res) => res.json({name:'程式炸彈拆除專家：最後倒數',version:'1.1.1',stages:STAGES}));
+  app.use(express.static(path.join(__dirname,'../public'),{
+    maxAge:0,
+    setHeaders(res, filePath) {
+      if (/\.(?:html|css|js)$/i.test(filePath)) res.setHeader('Cache-Control','no-store, max-age=0');
+    }
+  }));
+  app.get('*', (req,res) => res.set('Cache-Control','no-store, max-age=0').sendFile(path.join(__dirname,'../public/index.html')));
   const httpServer = http.createServer(app);
   const io = new Server(httpServer,{cors:{origin:false},maxHttpBufferSize:8192,pingInterval:20000,pingTimeout:15000});
   function broadcast(room) {
