@@ -27,6 +27,11 @@ let animatingSerial=-1;
 let toastTimer;
 let audioContext=null;
 let preset=0;
+const labDrafts={
+  sequence:{kind:'sequence',target:['BLUE','RED','GREEN']},
+  condition:{kind:'condition',color:'RED',threshold:60,mode:'AND'},
+  loop:{kind:'loop',target:7}
+};
 let dragged=null;
 let lastAssignment=null;
 const htmlOptions=(items,selected,labels={})=>items.map(x=>'<option value="'+escapeHtml(x)+'" '+(x===selected?'selected':'')+'>'+escapeHtml(labels[x]||x)+'</option>').join('');
@@ -358,25 +363,67 @@ function renderHistory(){
   const canFeedback=snapshot.role==='analyst'||snapshot.role==='operator';
   $('feedbackForm').hidden=!canFeedback;
 }
+function labSpec(){
+  return structuredClone(labDrafts[['sequence','condition','loop'][preset]]);
+}
+function labPreview(spec){
+  if(spec.kind==='sequence'){
+    const good=spec.target.length===3&&spec.target.every(x=>COLORS.includes(x))&&new Set(spec.target).size===3;
+    return {ok:good,title:'執行順序挑戰',rule:good?'必須依序啟動 '+spec.target.map(x=>COLOR_LABEL[x]).join(' → '):'三個顏色必須不同，請重新選擇。',hint:'操作員需把虛擬訊號積木排成這個順序。'};
+  }
+  if(spec.kind==='condition'){
+    const good=COLORS.includes(spec.color)&&['AND','OR'].includes(spec.mode)&&Number.isInteger(spec.threshold)&&spec.threshold>=20&&spec.threshold<=80;
+    const connective=spec.mode==='AND'?'且（AND：兩個條件皆成立）':'或（OR：符合任一條件即可）';
+    return {ok:good,title:'條件邏輯挑戰',rule:good?'顏色為 '+COLOR_LABEL[spec.color]+' '+connective+' 能源 > '+spec.threshold:'條件不合法；請選擇顏色、AND／OR，能源門檻需為 20～80。',
+      hint:'請注意 OR 是「或」，AND 才是「且」。操作員的條件積木需與預覽一致。'};
+  }
+  const good=Number.isInteger(spec.target)&&spec.target>=2&&spec.target<=10;
+  return {ok:good,title:'迴圈次數挑戰',rule:good?'數位模組剛好重複執行 '+spec.target+' 次':'迴圈目標次數應介於 2～10。',hint:'操作員需要設定起點、終點、增加值，讓實際迴圈次數符合目標。'};
+}
+function refreshLabPreview(){
+  const box=$('labPreview');
+  if(!box)return;
+  const info=labPreview(labSpec());
+  box.classList.toggle('lab-preview-invalid',!info.ok);
+  box.innerHTML='<b>📋 發布前題目預覽：'+escapeHtml(info.title)+'</b>'+
+    '<div class="lab-preview-rule">'+escapeHtml(info.rule)+'</div>'+
+    '<div class="lab-preview-tip">'+escapeHtml(info.hint)+'</div>';
+  const submit=$('labPublish');
+  if(submit)submit.disabled=!info.ok;
+}
 function renderLab(){
   const active=snapshot.mode==='lab';
   $('labPanel').hidden=!active;
   if(!active)return;
-  const designing=snapshot.role==='analyst'&&['paused','won','failed'].includes(snapshot.status);
+  const designing=(snapshot.role==='analyst') &&
+    (snapshot.status==='won'||snapshot.status==='failed'||(snapshot.status==='paused'&&!snapshot.puzzle));
   const target=$('labDesigner');
   if(!designing){
-    target.innerHTML='<p class="empty">'+(snapshot.role==='analyst'?'請等待目前關卡結束或老師按「實驗室換手」。':'等待分析員設計並發布挑戰；如需交換設計者，請老師按「實驗室換手」。')+'</p>';
+    const launched=Boolean(snapshot.puzzle);
+    const isAnalyst=snapshot.role==='analyst';
+    target.innerHTML='<div class="lab-status">'+(launched?
+      '✅ 已發布挑戰：'+escapeHtml(snapshot.puzzle.label)+
+      '。'+(snapshot.status==='active'?'目前正在進行，不能修改已發布的題目。':'本回合已結束，等待老師或分析員安排下一題。'):
+      (snapshot.role==='teacher'?'等待分析員在此設計並發布題目。':'等待分析員發布新挑戰。'))+
+      (snapshot.status==='paused'&&launched?'　⏸ 老師暫停中，請勿重新發布。':'')+
+      (launched&&isAnalyst?' 現在請向操作員說明任務規則並核准。':'')+'</div>';
     return;
   }
+  const draft=labSpec();
   const title=['任務 1：訊號順序','任務 2：布林密碼','任務 3：迴圈陷阱'];
-  target.innerHTML='<div class="lab-presets">'+title.map((t,i)=>'<button type="button" data-preset="'+i+'">'+(preset===i?'▶ ':'')+t+'</button>').join('')+'</div>'+
+  target.innerHTML='<div class="lab-status">🔎 你目前是挑戰設計者。發布後就不能在解題過程中改題；請先閱讀下方預覽。</div>'+
+    '<div class="lab-presets">'+title.map((t,i)=>'<button type="button" class="'+(preset===i?'selected':'')+'" data-preset="'+i+'">'+(preset===i?'▶ ':'')+t+'</button>').join('')+'</div>'+
     '<form id="labForm">'+(preset===0?
-      '<label>選擇四種訊號的前三個</label><select id="labS1">'+htmlOptions(COLORS,'BLUE',COLOR_LABEL)+'</select><select id="labS2">'+htmlOptions(COLORS,'RED',COLOR_LABEL)+'</select><select id="labS3">'+htmlOptions(COLORS,'GREEN',COLOR_LABEL)+'</select><div class="stats-micro">三種訊號不能重複</div>':
-      preset===1?'<label>指定正確顏色</label><select id="labColor">'+htmlOptions(COLORS,'RED',COLOR_LABEL)+'</select>'+
-      '<label>電力比較門檻</label><input type="number" id="labThreshold" min="20" max="80" value="60">'+
-      '<label>布林運算子</label><select id="labMode"><option value="AND">AND 且</option><option value="OR">OR 或</option></select>':
-      '<label>需要解除幾個模組？</label><input type="number" id="labCount" min="2" max="10" value="7">')+
-    '<button class="primary-btn small-btn" type="submit">發布給操作員挑戰 →</button></form>';
+      '<label for="labS1">第一個訊號</label><select id="labS1">'+htmlOptions(COLORS,draft.target[0],COLOR_LABEL)+'</select>'+
+      '<label for="labS2">第二個訊號</label><select id="labS2">'+htmlOptions(COLORS,draft.target[1],COLOR_LABEL)+'</select>'+
+      '<label for="labS3">第三個訊號</label><select id="labS3">'+htmlOptions(COLORS,draft.target[2],COLOR_LABEL)+'</select><div class="stats-micro">三種顏色必須不同。</div>':
+      preset===1?'<label for="labColor">正確顏色</label><select id="labColor">'+htmlOptions(COLORS,draft.color,COLOR_LABEL)+'</select>'+
+      '<label for="labThreshold">能源門檻（20～80）</label><input type="number" id="labThreshold" min="20" max="80" step="1" value="'+escapeHtml(draft.threshold)+'">'+
+      '<label for="labMode">兩個條件的關係</label><select id="labMode">'+htmlOptions(['AND','OR'],draft.mode,{AND:'且 AND',OR:'或 OR'})+'</select>':
+      '<label for="labCount">要重複執行幾次？（2～10）</label><input type="number" id="labCount" min="2" max="10" step="1" value="'+escapeHtml(draft.target)+'">')+
+    '<div id="labPreview" class="lab-preview" aria-live="polite"></div>'+
+    '<button class="primary-btn small-btn" type="submit" id="labPublish">🚀 確認預覽，發布給操作員</button></form>';
+  refreshLabPreview();
 }
 function animateResult(result){
   if(!result||result.serial===lastSerial)return;
@@ -527,18 +574,32 @@ $('saveConfig').addEventListener('click',()=>send('teacher:action',{
 }));
 $('jumpStage').addEventListener('click',()=>send('teacher:action',{action:'stage',index:Number($('stageSelect').value)}));
 $('labDesigner').addEventListener('click',e=>{
-  const btn=e.target.closest('[data-preset]');if(!btn)return;
-  preset=Number(btn.dataset.preset);renderLab();
+  const btn=e.target.closest('[data-preset]');
+  if(!btn)return;
+  preset=Number(btn.dataset.preset);
+  renderLab();
 });
+function saveLabInputs(){
+  if(!$('labForm'))return;
+  if(preset===0)labDrafts.sequence.target=[$('labS1').value,$('labS2').value,$('labS3').value];
+  if(preset===1)labDrafts.condition={kind:'condition',color:$('labColor').value,threshold:Number($('labThreshold').value),mode:$('labMode').value};
+  if(preset===2)labDrafts.loop={kind:'loop',target:Number($('labCount').value)};
+  refreshLabPreview();
+}
+$('labDesigner').addEventListener('input',e=>{if(e.target.closest('#labForm'))saveLabInputs();});
+$('labDesigner').addEventListener('change',e=>{if(e.target.closest('#labForm'))saveLabInputs();});
 $('labDesigner').addEventListener('submit',async e=>{
   if(e.target.id!=='labForm')return;
   e.preventDefault();
-  let spec;
-  if(preset===0)spec={kind:'sequence',target:[$('labS1').value,$('labS2').value,$('labS3').value]};
-  if(preset===1)spec={kind:'condition',color:$('labColor').value,threshold:Number($('labThreshold').value),mode:$('labMode').value};
-  if(preset===2)spec={kind:'loop',target:Number($('labCount').value)};
+  saveLabInputs();
+  const spec=labSpec(),preview=labPreview(spec);
+  if(!preview.ok){toast('請先修正題目設定：'+preview.rule,true);return;}
+  const button=$('labPublish');
+  if(button)button.disabled=true;
   const r=await send('lab:publish',{spec});
-  if(r.ok)toast('自訂挑戰已發布！請另一位學生進行除錯。');
+  if(r.ok){
+    toast('✅ 挑戰發布成功！現在請向操作員說明規則並核准。');
+  }else if(button)button.disabled=false;
 });
 $('feedbackForm').addEventListener('submit',async e=>{
   e.preventDefault();
