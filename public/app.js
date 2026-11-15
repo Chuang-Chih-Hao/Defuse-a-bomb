@@ -79,7 +79,7 @@ socket.on('connect',async()=>{
   updateConnection();
   if(saved?.code&&saved?.token){
     const r=await send('room:join',{code:saved.code,token:saved.token},true);
-    if(r.ok){self={...saved,role:r.role,slot:r.slot};saveIdentity(self);$('lobbyScreen').hidden=true;$('gameScreen').hidden=false;$('leaveBtn').hidden=false;}
+    if(r.ok){self={...saved,role:r.role,slot:r.slot};saveIdentity(self);$('lobbyScreen').hidden=true;$('gameScreen').hidden=false;$('leaveBtn').hidden=false;await send('room:join',{code:saved.code,token:saved.token},true);}
     else {localStorage.removeItem('defuse-identity');saved=null;self=null;$('gameScreen').hidden=true;$('lobbyScreen').hidden=false;toast('原有房間已失效，可重新建立或加入',true);}
   }
 });
@@ -114,7 +114,7 @@ function colorCard(v,i,kind){
   const name=kind==='sequence' ? (COLOR_LABEL[v]||v) : (STEP_LABEL[v]||v);
   return '<div class="block '+(kind==='debug'?'purple':'')+'" draggable="'+(canEdit()?'true':'false')+'" data-row="'+i+'" role="listitem">'+
     '<div class="block-header"><div class="block-left"><span class="block-dot"></span><div><b>'+String(i+1).padStart(2,'0')+' / '+escapeHtml(name)+'</b><div class="stats-micro mono">'+(kind==='sequence'?'activate("'+escapeHtml(v)+'")':escapeHtml(v.toLowerCase())+'()')+'</div></div></div>'+
-    '<div class="block-tools"><button type="button" data-move="'+i+':-1" '+(!canEdit()||i===0?'disabled':'')+' aria-label="上移">↑</button><button type="button" data-move="'+i+':1" '+(!canEdit()||i===snapshot.puzzle.blocks.length-1?'disabled':'')+' aria-label="下移">↓</button></div></div></div>';
+    '<div class="block-tools"><button type="button" data-move="'+i+':-1" '+(!canEdit()||i===0?'disabled':'')+' aria-label="上移">↑</button><button type="button" data-move="'+i+':1" '+(!canEdit()||i===(kind==='debug'?snapshot.puzzle.blocks.order.length:snapshot.puzzle.blocks.length)-1?'disabled':'')+' aria-label="下移">↓</button></div></div></div>';
 }
 function choice(field,values,selected,labels={}){
   return '<select data-field="'+escapeHtml(field)+'" '+(!canEdit()?'disabled':'')+'>'+htmlOptions(values,selected,labels)+'</select>';
