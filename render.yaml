@@ -1,0 +1,10 @@
+# Optional Render Blueprint — importing this file requires an explicit action in Render.
+services:
+  - type: web
+    name: defuse-a-bomb
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit

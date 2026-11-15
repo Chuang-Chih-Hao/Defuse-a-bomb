@@ -1,0 +1,24 @@
+{
+  "name": "defuse-a-bomb",
+  "version": "1.0.0",
+  "private": true,
+  "description": "程式炸彈拆除專家：雙人合作程式教育遊戲",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test tests/*.test.js",
+    "check": "node --check src/server.js && node --check src/engine.js && node --check public/app.js",
+    "build": "npm run check && npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.1"
+  }
+}

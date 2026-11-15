@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#08111f">
+  <meta name="description" content="雙人線上合作的程式設計教育遊戲：程式炸彈拆除專家">
+  <title>程式炸彈拆除專家：最後倒數 | Defuse a Bomb</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-icon">⌬</span><div><strong>數位危機處理局</strong><small>DEFUSE A BOMB · TRAINING DIVISION</small></div></div>
+      <div class="top-actions">
+        <span class="net-indicator" id="network"><i></i> 連線中</span>
+        <button class="icon-button" id="soundBtn" title="開關遊戲音效" aria-label="開關音效">🔊</button>
+        <button class="icon-button" id="leaveBtn" title="離開並清除本機房間登入" hidden>⎋ 離開</button>
+      </div>
+    </header>
+
+    <main id="lobbyScreen" class="lobby-screen">
+      <section class="intro">
+        <div class="eyebrow"><span class="pulse-dot"></span> CLASSIFIED / 教育訓練任務</div>
+        <h1>程式炸彈<span>拆除專家</span><em>最後倒數</em></h1>
+        <p>駭客入侵了未來城市的數位安全網路。兩名新進特勤人員必須交換情報、修正程式、同步合作，才能解除失控的虛擬核心。</p>
+        <div class="intro-metrics"><div><b>02</b><small>合作特工</small></div><div><b>04</b><small>核心任務</small></div><div><b>80<span>MIN</span></b><small>完整課程</small></div></div>
+        <div class="mission-tags"><span>▣ 執行順序</span><span>◇ 條件判斷</span><span>∞ 迴圈</span><span>⌘ Debug</span></div>
+      </section>
+      <section class="portal-panel">
+        <div class="portal-head"><span>SECURE ACCESS</span><span class="mono">v1.0.0</span></div>
+        <div class="portal-art" aria-hidden="true"><div class="radar radar-a"></div><div class="radar radar-b"></div><div class="radar-core">⌬</div><div class="crosshair h"></div><div class="crosshair v"></div></div>
+        <h2>連線任務終端</h2>
+        <p>老師建立房間，兩位學生使用不同裝置輸入相同房間代碼。</p>
+        <label for="nickname">暱稱（學生使用）</label><input id="nickname" maxlength="18" autocomplete="nickname" placeholder="例如：小宇">
+        <label for="roomCode">房間代碼</label><input id="roomCode" maxlength="6" autocapitalize="characters" spellcheck="false" placeholder="6 碼代碼" class="mono input-code">
+        <button id="joinBtn" class="primary-btn">學生 · 加入任務 <span>→</span></button>
+        <div class="separator"><span>或由老師開設新任務</span></div>
+        <button id="createBtn" class="secondary-btn">教師 · 建立專屬房間 ＋</button>
+        <div class="tiny-note">安全提示：本遊戲僅包含虛構數位裝置與程式謎題，不涉及真實爆裂物。</div>
+      </section>
+    </main>
+
+    <main id="gameScreen" class="game-screen" hidden>
+      <div class="status-bar">
+        <div class="status-left"><span class="pill">ROOM <strong id="roomLabel">------</strong></span><button id="copyRoom" class="copy-btn">複製代碼</button><span id="rolePill" class="pill role-pill">待命</span></div>
+        <div class="status-center"><span id="stageCaption">等待部署</span><strong id="stageHeading">數位危機處理局</strong></div>
+        <div class="status-right"><span class="pill">合作分數 <b id="score">0000</b></span><span class="pill" id="difficultyPill">基礎模式</span></div>
+      </div>
+
+      <div class="mission-track" id="missionTrack" aria-label="關卡進度">
+        <span data-stage="0">01 / 線路</span><span data-stage="1">02 / 密碼</span><span data-stage="2">03 / 迴圈</span><span data-stage="3">04 / Debug</span>
+      </div>
+
+      <div class="game-grid">
+        <aside class="sidebar sidebar-left">
+          <section class="panel agents-panel">
+            <div class="panel-heading"><h2>特勤小隊</h2><span>TEAM STATUS</span></div>
+            <div id="agents"></div>
+            <div class="teacher-conn" id="teacherConn">教師控制台：未連線</div>
+          </section>
+          <section class="panel mission-panel">
+            <div class="panel-heading"><h2>任務簡報</h2><span>OBJECTIVES</span></div>
+            <div id="taskInstructions" class="mission-copy"></div>
+            <div class="task-lines"><span>同步確認</span><span>協同執行</span><span>問題修正</span></div>
+          </section>
+          <section class="panel comm-panel">
+            <div class="panel-heading"><h2>作戰通訊</h2><span>COMMS</span></div>
+            <div id="comms" class="message-list"></div>
+            <form id="messageForm" class="message-form"><input id="messageInput" maxlength="100" placeholder="分析員輸入線索…"><button type="submit" title="傳送分析線索">➤</button></form>
+          </section>
+        </aside>
+
+        <section class="battlefield">
+          <div class="battlefield-head"><span class="mono">⚡ QUANTUM SAFETY MODULE</span><span id="systemStatus" class="system-status">● 待命</span></div>
+          <div class="timer-block"><span>TIME REMAINING</span><div class="timer" id="timer">08:00</div><div class="timer-sub" id="timerSub">等待任務開始</div></div>
+          <div id="core" class="core-container">
+            <div class="core-halo"></div><div class="core-ring ring-one"></div><div class="core-ring ring-two"></div><div class="core-ring ring-three"></div>
+            <div class="core-center"><div class="core-diamond">⌬</div><small id="coreLabel">DIGITAL CORE</small><b id="coreStatus">STANDBY</b></div>
+            <div class="circuit-node node-one" id="node0"><span>01</span></div>
+            <div class="circuit-node node-two" id="node1"><span>02</span></div>
+            <div class="circuit-node node-three" id="node2"><span>03</span></div>
+            <div class="circuit-node node-four" id="node3"><span>04</span></div>
+            <div class="wire-line line-one"></div><div class="wire-line line-two"></div>
+          </div>
+          <div class="stability-panel"><div><span>數位核心穩定度</span><strong id="stabilityValue">100%</strong></div><div class="stability-track"><div id="stabilityFill"></div></div></div>
+          <div class="module-readout"><div><small>程式版本</small><strong id="revision">R00</strong></div><div><small>剩餘提示</small><strong id="hintLeft">02</strong></div><div><small>執行次數</small><strong id="attempts">00</strong></div><div><small>同步狀態</small><strong id="approval">待檢查</strong></div></div>
+          <div id="tracePanel" class="trace-panel" aria-live="polite"></div>
+        </section>
+
+        <aside class="sidebar sidebar-right">
+          <section class="panel editor-panel">
+            <div class="panel-heading"><h2>指令編輯器</h2><span>LOGIC CONSOLE</span></div>
+            <div class="editor-top"><span>▣ VISUAL BLOCKS</span><span id="editorMode" class="mono">只讀模式</span></div>
+            <div id="editor" class="editor-body"></div>
+            <div class="editor-buttons">
+              <button id="approveBtn" class="secondary-btn small-btn">✓ 分析員核准</button>
+              <button id="runBtn" class="primary-btn small-btn">▶ 執行程式</button>
+            </div>
+            <button id="hintBtn" class="subtle-btn">◇ 提取系統提示（扣 25 分）</button>
+          </section>
+          <section class="panel code-panel">
+            <div class="panel-heading"><h2>JavaScript 對照</h2><span>READ ONLY</span></div>
+            <div class="code-head">script.js <span>自動生成 · 安全沙盒</span></div>
+            <pre id="codeOutput"><code>// 等待任務指令</code></pre>
+          </section>
+          <section class="panel lab-panel" id="labPanel" hidden>
+            <div class="panel-heading"><h2>挑戰實驗室</h2><span>CREATOR MODE</span></div>
+            <p>分析員設計規則，操作員負責破解。換回合自動交換角色。</p>
+            <div id="labDesigner"></div>
+          </section>
+        </aside>
+      </div>
+
+      <section class="panel teacher-panel" id="teacherPanel" hidden>
+        <div class="panel-heading"><h2>教師控制中心</h2><span>HOST AUTHORIZED</span></div>
+        <div class="teacher-grid">
+          <div class="teacher-config">
+            <label for="durationSelect">單關倒數</label><select id="durationSelect"><option value="5">5 分鐘</option><option value="8">8 分鐘</option><option value="10">10 分鐘</option><option value="12">12 分鐘</option><option value="15">15 分鐘</option><option value="20">20 分鐘</option></select>
+            <label for="difficultySelect">關卡難度</label><select id="difficultySelect"><option value="basic">基礎模式</option><option value="advanced">進階模式</option></select>
+            <button id="saveConfig" class="secondary-btn small-btn">儲存設定</button>
+          </div>
+          <div class="teacher-controls">
+            <button data-teacher="start">▶ 開始任務</button><button data-teacher="pause">Ⅱ 暫停</button><button data-teacher="resume">▶ 恢復</button><button data-teacher="retry">↺ 重試此關</button>
+            <button data-teacher="next">⇢ 下一關</button><button data-teacher="lab">⬡ 挑戰實驗室</button><button data-teacher="labNext">⇄ 實驗室換手</button><button data-teacher="reset" class="danger-btn">重設整場</button>
+          </div>
+          <div class="stage-jump"><label for="stageSelect">指定關卡</label><select id="stageSelect"><option value="0">第一關 · 線路</option><option value="1">第二關 · 密碼</option><option value="2">第三關 · 迴圈</option><option value="3">第四關 · Debug</option></select><button id="jumpStage" class="secondary-btn small-btn">切換關卡</button></div>
+        </div>
+        <div id="teacherSummary" class="teacher-summary"></div>
+      </section>
+
+      <section class="panel history-panel" id="historyPanel">
+        <div class="panel-heading"><h2>任務戰績與學習回饋</h2><span>MISSION ARCHIVE</span></div>
+        <div id="historyContent"></div>
+        <form id="feedbackForm" class="feedback-form">
+          <label>學習感受 <select id="rating"><option value="5">★★★★★ · 很有收穫</option><option value="4">★★★★☆ · 有學到</option><option value="3">★★★☆☆ · 還可以</option><option value="2">★★☆☆☆ · 有點困難</option><option value="1">★☆☆☆☆ · 需要幫忙</option></select></label>
+          <input id="feedbackText" maxlength="180" placeholder="我學到什麼？哪一段最需要協助？">
+          <button class="secondary-btn small-btn" type="submit">送出回饋</button>
+        </form>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js" defer></script>
+</body>
+</html>
