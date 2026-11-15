@@ -43,6 +43,9 @@ test('teacher authentication, room membership, role isolation, full stage lifecy
   assert.equal((await send(teacher,'teacher:action',{action:'labNext'})).ok,true);
   // stage 2 index=1 + labRounds=1 => analyst A again.
   assert.equal((await send(nextA,'lab:publish',{spec:{kind:'loop',target:7}})).ok,true);
+  assert.equal((await send(teacher,'teacher:action',{action:'pause'})).ok,true);
+  assert.equal((await send(nextA,'lab:publish',{spec:{kind:'condition',color:'YELLOW',threshold:80,mode:'OR'}})).ok,false,'Paused active puzzles must not be overwritten');
+  assert.equal((await send(teacher,'teacher:action',{action:'resume'})).ok,true);
   assert.equal((await send(b,'puzzle:run')).ok,false);
   assert.equal((await send(teacher,'teacher:action',{action:'reset'})).ok,true);
 });
