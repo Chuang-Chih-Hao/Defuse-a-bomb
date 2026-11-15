@@ -328,7 +328,7 @@ function createGameServer() {
       }
       broadcast(room);
       return {position:room.stepState.position,total:room.stepState.total,
-        finished:room.stepState.finished,ok:active.ok};
+        finished:room.stepState.finished,passed:active.ok};
     });
     handler(socket,'hint:request',()=>{
       const {room,member}=playGuard(socket);
