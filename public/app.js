@@ -340,24 +340,41 @@ $('messageForm').addEventListener('submit',async e=>{
   if(!msg)return;
   if((await send('analysis:message',{message:msg})).ok)$('messageInput').value='';
 });
+// Each editor event queues a single authoritative update. Rebuilding a form while
+// earlier socket responses are still in flight must never revert previous fields.
+let editQueue=Promise.resolve();
+function queueEdit(transform){
+  editQueue=editQueue.catch(()=>{}).then(async()=>{
+    if(!canEdit() || !snapshot?.puzzle)return;
+    const changed=transform(snapshot.puzzle);
+    if(changed!==null) await send('puzzle:edit',{blocks:changed});
+  });
+  return editQueue;
+}
 $('editor').addEventListener('click',async e=>{
   const btn=e.target.closest('[data-move]');
   if(!btn||!canEdit())return;
   const [idx,shift]=btn.dataset.move.split(':').map(Number);
-  const p=snapshot.puzzle;
-  const blocks=p.kind==='debug'?p.blocks.order.slice():p.blocks.slice();
-  const dest=idx+shift;if(dest<0||dest>=blocks.length)return;
-  [blocks[idx],blocks[dest]]=[blocks[dest],blocks[idx]];
-  await send('puzzle:edit',{blocks:p.kind==='debug'?{...p.blocks,order:blocks}:blocks});
+  await queueEdit(p=>{
+    if(!['sequence','debug'].includes(p.kind))return null;
+    const blocks=p.kind==='debug'?p.blocks.order.slice():p.blocks.slice();
+    const dest=idx+shift;if(dest<0||dest>=blocks.length)return null;
+    [blocks[idx],blocks[dest]]=[blocks[dest],blocks[idx]];
+    return p.kind==='debug'?{...p.blocks,order:blocks}:blocks;
+  });
 });
 $('editor').addEventListener('change',async e=>{
   const el=e.target.closest('[data-field]');
   if(!el||!canEdit())return;
+  // Capture immediately; the editor may be rerendered before this edit is sent.
   const field=el.dataset.field;
-  const blocks={...snapshot.puzzle.blocks};
-  if(!Object.prototype.hasOwnProperty.call(blocks,field))return;
-  blocks[field]=el.type==='number'?Number(el.value):el.value;
-  await send('puzzle:edit',{blocks});
+  const value=el.type==='number'?Number(el.value):el.value;
+  await queueEdit(p=>{
+    const blocks={...p.blocks};
+    if(!Object.prototype.hasOwnProperty.call(blocks,field))return null;
+    blocks[field]=value;
+    return blocks;
+  });
 });
 $('editor').addEventListener('dragstart',e=>{
   if(!canEdit())return;
@@ -366,12 +383,18 @@ $('editor').addEventListener('dragstart',e=>{
 });
 $('editor').addEventListener('dragover',e=>{if(dragged!==null&&e.target.closest('[data-row]'))e.preventDefault();});
 $('editor').addEventListener('drop',async e=>{
-  const row=e.target.closest('[data-row]');if(!row||dragged===null||!canEdit())return;
-  e.preventDefault();const p=snapshot.puzzle;
-  const blocks=p.kind==='debug'?p.blocks.order.slice():p.blocks.slice();
-  const to=Number(row.dataset.row);
-  const item=blocks.splice(dragged,1)[0];blocks.splice(to,0,item);dragged=null;
-  await send('puzzle:edit',{blocks:p.kind==='debug'?{...p.blocks,order:blocks}:blocks});
+  const row=e.target.closest('[data-row]');
+  if(!row||dragged===null||!canEdit())return;
+  e.preventDefault();
+  const from=dragged,to=Number(row.dataset.row);
+  dragged=null;
+  await queueEdit(p=>{
+    if(!['sequence','debug'].includes(p.kind))return null;
+    const blocks=p.kind==='debug'?p.blocks.order.slice():p.blocks.slice();
+    if(from<0||from>=blocks.length||to<0||to>=blocks.length)return null;
+    const item=blocks.splice(from,1)[0];blocks.splice(to,0,item);
+    return p.kind==='debug'?{...p.blocks,order:blocks}:blocks;
+  });
 });
 $('editor').addEventListener('dragend',()=>{dragged=null;});
 document.querySelectorAll('[data-teacher]').forEach(b=>b.addEventListener('click',async()=>{
