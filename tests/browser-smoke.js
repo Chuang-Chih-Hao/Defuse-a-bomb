@@ -133,7 +133,10 @@ async function main(){
     await a.locator('#editor [data-move="0:1"]').click();
     await a.locator('#editor [data-move="1:1"]').click();
     await a.locator('#editor [data-move="0:1"]').click();
-    // Three adjacent swaps transform [GREEN,RED,BLUE] to [BLUE,RED,GREEN].
+    // 等待所有方塊版本在兩台電腦同步完成，否則舊核准會被最新編輯撤銷。
+    const expectedLab='activate("BLUE")\nactivate("RED")\nactivate("GREEN")';
+    await Promise.all([a,b].map(page=>page.waitForFunction(expected=>
+      document.querySelector('#codeOutput')?.textContent===expected,expectedLab,{timeout:15000})));
     await b.locator('#approveBtn').click();
     await a.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
     await a.locator('#runBtn').click();
@@ -148,6 +151,8 @@ async function main(){
     await b.waitForFunction(()=>document.querySelector('#editor [data-field=limit]'));
     await b.locator('#editor [data-field=limit]').fill('7');
     await b.locator('#editor [data-field=limit]').press('Tab');
+    await Promise.all([a,b].map(page=>page.waitForFunction(()=>
+      document.querySelector('#codeOutput')?.textContent.includes('range(0, 7, 1)'),null,{timeout:15000})));
     await a.locator('#approveBtn').click();
     await b.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
     await b.locator('#runBtn').click();
