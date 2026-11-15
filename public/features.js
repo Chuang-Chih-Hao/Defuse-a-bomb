@@ -59,7 +59,7 @@
     const code=raw.split('\n').map((line,i)=>{
       const visible=mask?line.replace(/(\/\/|%|==|!=|\band\b|\bor\b)/g,'???'):line;
       return '<span class="code-line '+(visible!==line?'logic-mask':'')+'" data-line="'+(i+1)+
-        '" title="移到程式行，查看對應積木">'+escapeHtml(visible||' ')+'</span>';
+        '" title="移到程式行，查看對應積木">'+escapeHtml(visible)+'</span>';
     }).join('\n');
     $('codeOutput').innerHTML=code;
     highlight();
