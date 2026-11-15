@@ -296,7 +296,7 @@ function createGameServer() {
       const room=rooms.get(socket.data.roomCode);
       const {member}=check(socket,room,true);
       if(room.mode!=='lab' || roleOf(room,member)!=='analyst') throw Error('只有目前的設計分析員能設計挑戰');
-      if(!['paused','won','failed'].includes(room.status)) throw Error('請等待本次挑戰結束');
+      if(!['won','failed'].includes(room.status) && !(room.status==='paused' && !room.puzzle)) throw Error('目前挑戰尚未結束；暫停中的任務不能被覆蓋');
       const clean=validateLabSpec(spec);
       begin(room,clean);
       broadcast(room);return {kind:clean.kind};
