@@ -35,10 +35,37 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Three-user end-to-end browser gameplay
         run: node tests/browser-smoke.js
+      - name: Public Render HTTP health and UI verification
+        env:
+          TARGET_URL: https://defuse-a-bomb.onrender.com
+        run: |
+          for i in $(seq 1 15); do
+            if curl --fail --silent --show-error --max-time 25 "$TARGET_URL/health" -o /tmp/live-health.json && grep -q '"ok":true' /tmp/live-health.json; then
+              break
+            fi
+            sleep 10
+          done
+          grep -q '"ok":true' /tmp/live-health.json
+          curl --fail --silent --show-error --max-time 30 "$TARGET_URL/api/info" | tee /tmp/live-info.json
+          grep -q 'Defuse' /tmp/live-info.json
+          curl --fail --silent --show-error --max-time 30 "$TARGET_URL/" | grep -q '數位危機處理局'
+          curl --fail --silent --show-error --max-time 30 "$TARGET_URL/app.js" | grep -q 'socket'
+          echo "PASS public Render HTTPS, /health, /api/info, HTML and client JS"
+      - name: Public Render three-user Chromium gameplay
+        env:
+          TARGET_URL: https://defuse-a-bomb.onrender.com
+        run: |
+          node tests/browser-smoke.js || {
+            echo "Remote redeployment may have overlapped the room test; retrying once"
+            sleep 35
+            node tests/browser-smoke.js
+          }
       - name: Save dashboard screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: browser-screenshot
-          path: teacher-screenshot.png
+          path: |
+            teacher-screenshot.png
+            render-teacher-screenshot.png
           if-no-files-found: ignore

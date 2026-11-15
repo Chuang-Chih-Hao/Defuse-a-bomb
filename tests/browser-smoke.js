@@ -4,12 +4,12 @@ const assert=require('node:assert/strict');
 const { chromium }=require('playwright');
 const { createGameServer }=require('../src/server');
 
-const game=createGameServer();
+const game=process.env.TARGET_URL ? null : createGameServer();
 const problems=[];
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function main(){
-  const port=await game.listen(0);
-  const url='http://127.0.0.1:'+port;
+  const port=game ? await game.listen(0) : null;
+  const url=process.env.TARGET_URL || 'http://127.0.0.1:'+port;
   const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
   try {
     const contextTeacher=await browser.newContext({viewport:{width:1440,height:900}});
@@ -127,9 +127,9 @@ async function main(){
     assert.match(await b.locator('#rolePill').textContent(),/拆彈操作員/);
     console.log('PASS browser refresh reconnect');
 
-    await teacher.screenshot({path:'teacher-screenshot.png',fullPage:true});
+    await teacher.screenshot({path:process.env.TARGET_URL?'render-teacher-screenshot.png':'teacher-screenshot.png',fullPage:true});
     assert.deepEqual(problems,[],'No browser runtime exceptions');
     console.log('PASS browser: teacher dashboard, students, room and visual UI');
   }finally{await browser.close();}
 }
-main().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await game.close();});
+main().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(game)await game.close();});
