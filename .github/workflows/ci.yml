@@ -1,0 +1,44 @@
+name: Game CI
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Syntax, logic and live Socket.IO integration
+        run: npm run build
+      - name: Test health endpoint and static assets
+        run: |
+          npm start &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID || true" EXIT
+          sleep 3
+          curl --fail --silent http://127.0.0.1:3000/health
+          curl --fail --silent http://127.0.0.1:3000/ > /dev/null
+          curl --fail --silent http://127.0.0.1:3000/app.js > /dev/null
+      - name: Install real Chromium for browser tests
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Three-user end-to-end browser gameplay
+        run: node tests/browser-smoke.js
+      - name: Save dashboard screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-screenshot
+          path: teacher-screenshot.png
+          if-no-files-found: ignore
