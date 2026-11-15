@@ -138,11 +138,17 @@ src/
   server.js           # Express / Socket.IO / 鑑權 / 倒數 / 教師操作
 tests/
   engine.test.js      # 四關、進階條件、改造任務、越界輸入測試
-  multiplayer.test.js # 建房、雙人操作、老師驗證、重新連入、暫停等
+  multiplayer.test.js # 建房、雙人操作、失敗重試、老師驗證與重新連入
+  browser-smoke.js    # Playwright 三人瀏覽器全流程測試
 package.json
 render.yaml            # 可選 Render Blueprint 範本（不會自行建立服務）
+.github/workflows/ci.yml # GitHub Actions 自動測試
 README.md
 \`\`\`
+
+## 目前上線狀態
+
+GitHub `main` 已包含完整原始碼與 CI 測試流程。**Render 服務尚未由使用者建立，因此目前沒有可提供給學生的公開遊戲網址。**建立 Render 後，請用三個不同的瀏覽器個人檔案或三台設備進行課前實機驗證。
 
 ## 版本更新紀錄
 
