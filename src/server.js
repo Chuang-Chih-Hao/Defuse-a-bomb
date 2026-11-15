@@ -329,7 +329,7 @@ function createGameServer() {
   return {
     app,io,httpServer,rooms,
     listen(port=0){return new Promise(resolve=>httpServer.listen(port,'0.0.0.0',()=>resolve(httpServer.address().port)));},
-    async close(){clearInterval(tick);await new Promise(resolve=>io.close(()=>httpServer.close(()=>resolve())));}
+    async close(){clearInterval(tick);await new Promise(resolve=>io.close(resolve));}
   };
 }
 if(require.main===module) {
