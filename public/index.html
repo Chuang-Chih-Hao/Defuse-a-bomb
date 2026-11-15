@@ -53,17 +53,33 @@
         <span data-stage="0">01 / 線路</span><span data-stage="1">02 / 密碼</span><span data-stage="2">03 / 迴圈</span><span data-stage="3">04 / Debug</span>
       </div>
 
+
+      <section id="turnBanner" class="turn-banner" aria-live="polite">
+        <div class="turn-symbol" id="turnSymbol">⌁</div>
+        <div class="turn-copy"><span class="turn-eyebrow" id="turnEyebrow">合作流程 · CO-OP</span>
+          <h2 id="turnTitle">等待老師開始任務</h2>
+          <p id="turnDescription">分析員讀題 → 操作員修改 → 分析員核准 → 操作員執行</p>
+        </div>
+        <div class="turn-partner" id="turnPartner">準備同步中</div>
+      </section>
+      <div class="workflow-steps" id="workflowSteps" aria-label="目前合作操作步驟">
+        <span data-phase="brief">① 分析員讀題</span>
+        <span data-phase="edit">② 操作員改方塊</span>
+        <span data-phase="approve">③ 分析員核准</span>
+        <span data-phase="run">④ 操作員執行</span>
+      </div>
+
       <div class="game-grid">
         <aside class="sidebar sidebar-left">
+          <section class="panel mission-panel" id="missionPanel">
+            <div class="panel-heading mission-heading"><h2>🔎 分析員任務卡</h2><span>MISSION / TOP PRIORITY</span></div>
+            <div id="taskInstructions" class="mission-copy" aria-live="polite"></div>
+            <div class="task-lines"><span>讀懂目標</span><span>告訴隊友</span><span>確認核准</span></div>
+          </section>
           <section class="panel agents-panel">
             <div class="panel-heading"><h2>特勤小隊</h2><span>TEAM STATUS</span></div>
             <div id="agents"></div>
             <div class="teacher-conn" id="teacherConn">教師控制台：未連線</div>
-          </section>
-          <section class="panel mission-panel">
-            <div class="panel-heading"><h2>任務簡報</h2><span>OBJECTIVES</span></div>
-            <div id="taskInstructions" class="mission-copy"></div>
-            <div class="task-lines"><span>同步確認</span><span>協同執行</span><span>問題修正</span></div>
           </section>
           <section class="panel comm-panel">
             <div class="panel-heading"><h2>作戰通訊</h2><span>COMMS</span></div>
@@ -91,19 +107,25 @@
 
         <aside class="sidebar sidebar-right">
           <section class="panel editor-panel">
-            <div class="panel-heading"><h2>指令編輯器</h2><span>LOGIC CONSOLE</span></div>
-            <div class="editor-top"><span>▣ VISUAL BLOCKS</span><span id="editorMode" class="mono">只讀模式</span></div>
-            <div id="editor" class="editor-body"></div>
-            <div class="editor-buttons">
-              <button id="approveBtn" class="secondary-btn small-btn">✓ 分析員核准</button>
-              <button id="runBtn" class="primary-btn small-btn">▶ 執行程式</button>
+            <div class="panel-heading"><h2>🧩 Scratch 風格程式積木</h2><span>VISUAL PROGRAMMING</span></div>
+            <div class="program-layout">
+              <div class="visual-pane">
+                <div class="editor-top"><span>可視化程式方塊 · 直接修改參數</span><span id="editorMode" class="mono">只讀模式</span></div>
+                <div id="editor" class="editor-body"></div>
+                <div class="editor-buttons">
+                  <button id="approveBtn" class="secondary-btn small-btn" title="分析員檢查隊友修改並同意執行">③ ✓ 分析員核准</button>
+                  <button id="runBtn" class="primary-btn small-btn" title="操作員在分析員核准後執行">④ ▶ 操作員執行</button>
+                </div>
+                <p class="editor-tip" id="editorTip">每次修改積木後，需要分析員重新核准。</p>
+                <button id="hintBtn" class="subtle-btn">◇ 提取系統提示（扣 25 分）</button>
+              </div>
+              <div class="python-pane" id="pythonPanel">
+                <div class="panel-heading"><h2>🐍 Python 對照</h2><span>僅供學習 · 不直接執行</span></div>
+                <p class="python-help">左側每個積木，都對應下方一段 Python 程式。改動積木時會同步更新。</p>
+                <div class="code-head">logic.py <span>同步產生</span></div>
+                <pre id="codeOutput"><code># 等待程式積木</code></pre>
+              </div>
             </div>
-            <button id="hintBtn" class="subtle-btn">◇ 提取系統提示（扣 25 分）</button>
-          </section>
-          <section class="panel code-panel">
-            <div class="panel-heading"><h2>JavaScript 對照</h2><span>READ ONLY</span></div>
-            <div class="code-head">script.js <span>自動生成 · 安全沙盒</span></div>
-            <pre id="codeOutput"><code>// 等待任務指令</code></pre>
           </section>
           <section class="panel lab-panel" id="labPanel" hidden>
             <div class="panel-heading"><h2>挑戰實驗室</h2><span>CREATOR MODE</span></div>
