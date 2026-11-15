@@ -237,12 +237,17 @@ async function main(){
     await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('能量分配站'))));
     assert.match(await a.locator('.mission-rule').textContent(),/C = /);
     assert.equal(await b.locator('#codeOutput').textContent(),await a.locator('#codeOutput').textContent());
+    // 依次等待每次編輯傳送完畢，避免 Socket.IO 更新導致編輯表單重新渲染。
+    const waitPythonBoth=async(code)=>Promise.all([a,b].map(page=>
+      page.waitForFunction(part=>document.querySelector('#codeOutput')?.textContent.includes(part),code,{timeout:12000})));
     await b.locator('#editor [data-field=source]').selectOption('A');
+    await waitPythonBoth('C = (A * 1 // 1) % 4');
     await b.locator('#editor [data-field=factor]').fill('2');
     await b.locator('#editor [data-field=factor]').press('Tab');
+    await waitPythonBoth('C = (A * 2 // 1) % 4');
     await b.locator('#editor [data-field=modulo]').fill('5');
     await b.locator('#editor [data-field=modulo]').press('Tab');
-    await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('C = (A * 2 // 1) % 5'))));
+    await waitPythonBoth('C = (A * 2 // 1) % 5');
     await b.locator('[data-block-id=vars-modulo]').hover();
     await b.waitForFunction(()=>document.querySelector('#codeOutput .code-line.logic-hover'));
     await a.locator('#approveBtn').click();
@@ -288,7 +293,7 @@ async function main(){
     await teacher.waitForFunction(()=>document.querySelector('#systemStatus')?.textContent.includes('安全解除'));
     console.log('PASS stage 7: function definition, block budget and main call');
 
-    // 國二模式：分析員只能讀 Python 目標，操作員沒有答案。
+    // 進階模式：不依年級區分；分析員只收到 Python 目標，操作員沒有答案。
     await teacher.locator('#difficultySelect').selectOption('advanced');
     await teacher.locator('#saveConfig').click();
     await teacher.locator('#stageSelect').selectOption('4');

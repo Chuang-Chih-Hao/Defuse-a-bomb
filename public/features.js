@@ -168,7 +168,7 @@
     if(snapshot.difficulty==='advanced'&&(snapshot.role==='analyst'||snapshot.role==='teacher')&&
        p.briefing?.targetPython){
       const mission=$('taskInstructions');
-      mission.innerHTML='<span class="mission-card-badge">🔐 國二進階 · 分析員讀碼</span>'+
+      mission.innerHTML='<span class="mission-card-badge">🔐 進階挑戰 · 分析員讀碼</span>'+
         '<div class="mission-card-title">🐍 請讀懂目標 Python，指揮隊友排積木</div>'+
         '<p class="mission-card-explain">本模式不提供白話答案；分析員自行推理後，用口頭或作戰通訊說明。</p>'+
         '<pre class="mission-rule mission-target">'+escapeHtml(p.briefing.targetPython)+'</pre>'+

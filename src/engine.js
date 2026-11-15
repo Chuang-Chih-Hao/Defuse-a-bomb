@@ -312,7 +312,7 @@ function visiblePuzzle(p, isAnalyst) {
   };
   if(isAnalyst) {
     if(advanced){
-      // 國二分析員只收到目標 Python，必須自己讀懂再指揮隊友。
+      // 進階模式的分析員只收到目標 Python，必須自己讀懂再指揮隊友；難度不綁定年級。
       data.briefing={title:'Python 讀碼挑戰',rule:'請解讀以下目標 Python 程式，指導操作員完成相同積木。',
         targetPython:targetPython(p),
         steps:['閱讀下面的目標 Python 程式。','和操作員說明每一行的流程、運算或索引。','確認積木與目標一致，再核准執行。']};
