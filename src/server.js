@@ -26,7 +26,7 @@ function newRoom() {
   const room = {
     code, teacherHash: hash(teacherToken), teacherSocket: null, members: [],
     // 角色輪換依關卡開始時的在線學生名單，避免中途加入接管他人任務。
-    turnRoster:null,
+    turnRoster:null, assignment:null,
     teacherPlayer:{nick:'老師',edits:0,runs:0,errors:0,hints:0,messages:0},
     difficulty: 'basic', duration: 8, stageIndex: 0, mode: 'mission', status: 'lobby',
     remainingMs: 8*60000, deadline: null, startedAt: Date.now(), stageStartedAt: null,
@@ -66,6 +66,13 @@ function requireStudent(room){
 function begin(room, spec = null) {
   requireStudent(room);
   room.turnRoster=room.members.filter(m=>m.socketId).map(m=>m.slot);
+  // 儲存本回合角色，不受中途加入者影響，方便測試與教師監控。
+  const roles=currentRoles(room);
+  const slotOf=role=>{
+    const found=Object.entries(roles.students).find(([,value])=>value===role);
+    return found?Number(found[0]):null;
+  };
+  room.assignment={analystSlot:slotOf('analyst'),operatorSlot:slotOf('operator')};
   if (spec) room.designerSpec = spec;
   room.puzzle = room.mode === 'lab' ? (room.designerSpec ? makePuzzle('lab',false,room.designerSpec) : null)
     : makePuzzle(STAGES[room.stageIndex],room.difficulty === 'advanced');
@@ -119,6 +126,7 @@ function publicState(room, member = null, teacher = false) {
   return {
     code: room.code, mode: room.mode, role, isTeacher:teacher,
     teacherActor,maxStudents:3,connectedStudents:connectedCount(room),
+    assignment:room.assignment,
     stage: stageName(room), stageIndex: room.stageIndex, title: TITLES[stageName(room)],
     difficulty: room.difficulty, duration: room.duration, status: room.status,
     remainingMs: sleepClock(room), serverTime: Date.now(),
@@ -276,7 +284,7 @@ function createGameServer() {
         room.mode='mission';room.stageIndex=0;room.status='lobby';room.puzzle=null;
         room.deadline=null;room.remainingMs=room.duration*60000;room.teamScore=0;
         room.history=[];room.labRounds=0;room.messages=[];room.lastResult=null;
-        room.stepPlan=null;room.stepState=null;room.turnRoster=null;
+        room.stepPlan=null;room.stepState=null;room.turnRoster=null;room.assignment=null;
         Object.assign(room.teacherPlayer,{edits:0,runs:0,errors:0,hints:0,messages:0});
         for(const m of room.members) Object.assign(m,{errors:0,hints:0,edits:0,runs:0,messages:0,feedback:null});
       } else throw Error('未知教師指令');
