@@ -40,8 +40,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Three-user end-to-end browser gameplay
         run: node tests/browser-smoke.js
-      - name: Flexible classroom roles browser validation
-        run: node tests/flexible-browser.js
+      - name: Teacher with 1 and 3 students in isolated Chromium browsers
+        run: node tests/room-sizes-browser.js
       - name: Public Render HTTP health and UI verification
         env:
           TARGET_URL: https://defuse-a-bomb.onrender.com
@@ -54,7 +54,7 @@ jobs:
           done
           grep -q '"ok":true' /tmp/live-health.json
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/api/info" | tee /tmp/live-info.json
-          grep -q '"version":"1.3.0"' /tmp/live-info.json
+          grep -q '"version":"1.2.0"' /tmp/live-info.json
           # Save complete responses before asserting, avoiding early pipe closure with grep -q.
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/" -o /tmp/live-index.html
           grep -q '數位危機處理局' /tmp/live-index.html
@@ -64,8 +64,8 @@ jobs:
           grep -q 'watchWindow' /tmp/live-features.js
           curl --fail --silent --show-error --max-time 30 "$TARGET_URL/socket.io/?EIO=4&transport=polling" -o /tmp/engine-handshake.txt
           grep -q '^0' /tmp/engine-handshake.txt
-          curl --fail --silent --show-error -I "$TARGET_URL/app.js?v=1.3.0" | tr -d '\r' | grep -i 'cache-control: no-store'
-          grep -q 'app.js?v=1.3.0' /tmp/live-index.html
+          curl --fail --silent --show-error -I "$TARGET_URL/app.js?v=1.2.0" | tr -d '\r' | grep -i 'cache-control: no-store'
+          grep -q 'app.js?v=1.2.0' /tmp/live-index.html
           echo "PASS production asset cache-busting, HTTP health and Engine.IO handshake"
       - name: Public Render three-user Chromium gameplay
         env:
@@ -76,14 +76,14 @@ jobs:
             sleep 35
             node tests/browser-smoke.js
           }
-      - name: Public Render flexible classroom browser validation
+      - name: Public Render teacher + 1 / 3 student role verification
         env:
           TARGET_URL: https://defuse-a-bomb.onrender.com
         run: |
-          node tests/flexible-browser.js || {
-            echo "Retry after potential Render restart"
-            sleep 20
-            node tests/flexible-browser.js
+          node tests/room-sizes-browser.js || {
+            echo "Remote deployment may have restarted the test room; retry once"
+            sleep 35
+            node tests/room-sizes-browser.js
           }
       - name: Save dashboard screenshot
         if: always()
@@ -96,4 +96,6 @@ jobs:
             render-debug-*.png
             phone-*.png
             render-phone-*.png
+            local-three-student-roster.png
+            render-three-student-roster.png
           if-no-files-found: ignore

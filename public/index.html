@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#08111f">
-  <meta name="description" content="教師與一至三名學生合作的程式設計教育遊戲：程式炸彈拆除專家">
+  <meta name="description" content="雙人線上合作的程式設計教育遊戲：程式炸彈拆除專家">
   <title>程式炸彈拆除專家：最後倒數 | Defuse a Bomb</title>
-  <link rel="stylesheet" href="/style.css?v=1.3.0">
+  <link rel="stylesheet" href="/style.css?v=1.2.1">
 </head>
 <body>
   <div class="scanlines" aria-hidden="true"></div>
@@ -24,15 +24,15 @@
       <section class="intro">
         <div class="eyebrow"><span class="pulse-dot"></span> CLASSIFIED / 教育訓練任務</div>
         <h1>程式炸彈<span>拆除專家</span><em>最後倒數</em></h1>
-        <p>駭客入侵了未來城市的數位安全網路。老師可帶領 1～3 名學生合作：兩位擔任分析與操作，第三位觀察支援並在後續關卡輪換。</p>
-        <div class="intro-metrics"><div><b>1–3</b><small>學生人數</small></div><div><b>07</b><small>核心任務</small></div><div><b>80<span>MIN</span></b><small>完整課程</small></div></div>
+        <p>駭客入侵了未來城市的數位安全網路。特勤小隊必須交換情報、修正程式、同步合作，才能解除失控的虛擬核心。</p>
+        <div class="intro-metrics"><div><b>01–03</b><small>可加入學生</small></div><div><b>07</b><small>核心任務</small></div><div><b>80<span>MIN</span></b><small>完整課程</small></div></div>
         <div class="mission-tags"><span>▣ 執行順序</span><span>◇ 條件判斷</span><span>∞ 迴圈</span><span>⌘ Debug</span></div>
       </section>
       <section class="portal-panel">
-        <div class="portal-head"><span>SECURE ACCESS</span><span class="mono">v1.3.0</span></div>
+        <div class="portal-head"><span>SECURE ACCESS</span><span class="mono">v1.2.1</span></div>
         <div class="portal-art" aria-hidden="true"><div class="radar radar-a"></div><div class="radar radar-b"></div><div class="radar-core">⌬</div><div class="crosshair h"></div><div class="crosshair v"></div></div>
         <h2>連線任務終端</h2>
-        <p>老師建立房間，1～3 位學生從不同裝置輸入同一房間代碼。至少一位學生到齊就能由老師開始遊戲。</p>
+        <p>老師建立房間，1～3 位學生可用不同裝置加入；老師與一位學生即可開始。</p>
         <label for="nickname">暱稱（學生使用）</label><input id="nickname" maxlength="18" autocomplete="nickname" placeholder="例如：小宇">
         <label for="roomCode">房間代碼</label><input id="roomCode" maxlength="6" autocapitalize="characters" spellcheck="false" placeholder="6 碼代碼" class="mono input-code">
         <button id="joinBtn" class="primary-btn">學生 · 加入任務 <span>→</span></button>
@@ -143,6 +143,7 @@
 
       <section class="panel teacher-panel" id="teacherPanel" hidden>
         <div class="panel-heading"><h2>教師控制中心</h2><span>HOST AUTHORIZED</span></div>
+        <p class="teacher-mode-hint">至少 1 名學生在線即可開始，最多 3 名。1 人由老師補位；3 人每關輪換「分析員／操作員／情報支援員」。</p>
         <div class="teacher-grid">
           <div class="teacher-config">
             <label for="durationSelect">單關倒數</label><select id="durationSelect"><option value="5">5 分鐘</option><option value="8">8 分鐘</option><option value="10">10 分鐘</option><option value="12">12 分鐘</option><option value="15">15 分鐘</option><option value="20">20 分鐘</option></select>
@@ -171,7 +172,7 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=1.3.0" defer></script>
-  <script src="/features.js?v=1.3.0" defer></script>
+  <script src="/app.js?v=1.2.1" defer></script>
+  <script src="/features.js?v=1.2.1" defer></script>
 </body>
 </html>
