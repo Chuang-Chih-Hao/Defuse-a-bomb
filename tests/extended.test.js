@@ -122,7 +122,7 @@ test('三人 Socket.IO：七關角色隔離、單步 Watch、失誤與教師切�
   assert.equal((await send(a,'puzzle:edit',{blocks:{first:6,second:2}})).ok,true);
   assert.equal((await send(b,'analysis:approve')).ok,true);
   const errStep=await send(a,'puzzle:step');
-  assert.equal(errStep.ok,true);
+  assert.equal(errStep.ok,true,JSON.stringify(errStep));
   assert.equal(errStep.finished,true);
   assert.equal(room.status,'active','單次索引錯誤只扣穩定度，不會直接結束遊戲');
   assert.equal(room.stability,82);
