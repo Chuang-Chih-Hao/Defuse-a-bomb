@@ -301,10 +301,15 @@ async function main(){
     // 進階模式：不依年級區分；分析員只收到 Python 目標，操作員沒有答案。
     await teacher.locator('#difficultySelect').selectOption('advanced');
     await teacher.locator('#saveConfig').click();
+    // The config request is asynchronous. Wait for the server snapshot before
+    // starting the next mission or the new puzzle can be created in basic mode.
+    await Promise.all([teacher,a,b].map(page=>page.waitForFunction(()=>
+      document.querySelector('#difficultyPill')?.textContent.includes('進階模式'),null,{timeout:15000})));
     await teacher.locator('#stageSelect').selectOption('4');
     await teacher.locator('#jumpStage').click();
-    await a.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('能量分配站') &&
-      document.querySelector('.mission-target')?.textContent.includes('C ='));
+    await Promise.all([teacher,a,b].map(page=>page.waitForFunction(()=>
+      document.querySelector('#stageHeading')?.textContent.includes('能量分配站'),null,{timeout:15000})));
+    await a.waitForFunction(()=>document.querySelector('.mission-target')?.textContent.includes('C ='),null,{timeout:15000});
     assert.match(await a.locator('.mission-target').textContent(),/C = \(B \* 3 \/\/ 2\) % 5/);
     assert.equal(await b.locator('.mission-target').count(),0);
     console.log('PASS advanced analyst code-only rule and private target Python');
