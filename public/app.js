@@ -15,7 +15,7 @@ const STAGE_HELP={
   debug:'系統核心同時存在順序、if 判斷與 for 迴圈三類 Bug。<br>分析員負責檢查規格，操作員修改三處錯誤，再觀察追蹤結果。',
   lab:'設計者自訂數位邏輯規則，另一人負責破解。<br>內建三種任務：自訂執行順序、改造布林條件、設計迴圈陷阱。'
 };
-const DEFUSE_UI_VERSION='1.2.1';
+const DEFUSE_UI_VERSION='1.3.0';
 const socket=io({reconnection:true,reconnectionDelay:500,reconnectionDelayMax:4000});
 let saved=null;
 try{saved=JSON.parse(localStorage.getItem('defuse-identity')||'null');}catch{}

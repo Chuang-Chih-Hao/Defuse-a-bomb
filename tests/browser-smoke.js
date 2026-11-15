@@ -215,7 +215,7 @@ async function main(){
       assert.ok(mobile.width>=width*.75,'Python code panel is unexpectedly narrow');
       assert.ok(mobile.right<=mobile.viewportWidth+2,'Python code clipped off screen');
       assert.ok(mobile.teamRight<=mobile.viewportWidth+2,'Team roster clipped off screen');
-      assert.ok(mobile.versionScript.includes('v=1.2.0'),'Browser is not using versioned JavaScript');
+      assert.ok(mobile.versionScript.includes('v=1.3.0'),'Browser is not using versioned JavaScript');
       await a.locator('#codeOutput').scrollIntoViewIfNeeded();
       await a.screenshot({path:(process.env.TARGET_URL?'render-':'')+'phone-'+width+'.png',fullPage:true});
       console.log('PASS mobile Python visibility and roster at '+width+'px: code height '+Math.round(mobile.height)+'px');
