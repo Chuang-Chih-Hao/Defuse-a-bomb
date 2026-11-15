@@ -369,12 +369,12 @@ function labSpec(){
 function labPreview(spec){
   if(spec.kind==='sequence'){
     const good=spec.target.length===3&&spec.target.every(x=>COLORS.includes(x))&&new Set(spec.target).size===3;
-    return {ok:good,title:'執行順序挑戰',rule:good?'必須依序啟動 '+spec.target.map(x=>COLOR_LABEL[x]).join(' → '):'三個顏色必須不同，請重新選擇。',hint:'操作員需把虛擬訊號積木排成這個順序。'};
+    return {ok:good,title:'執行順序挑戰',rule:good?'必須依序啟動 '+spec.target.map(x=>COLOR_LABEL[x]+'（'+x+'）').join(' → '):'三個顏色必須不同，請重新選擇。',hint:'操作員需把虛擬訊號積木排成這個順序。'};
   }
   if(spec.kind==='condition'){
     const good=COLORS.includes(spec.color)&&['AND','OR'].includes(spec.mode)&&Number.isInteger(spec.threshold)&&spec.threshold>=20&&spec.threshold<=80;
     const connective=spec.mode==='AND'?'且（AND：兩個條件皆成立）':'或（OR：符合任一條件即可）';
-    return {ok:good,title:'條件邏輯挑戰',rule:good?'顏色為 '+COLOR_LABEL[spec.color]+' '+connective+' 能源 > '+spec.threshold:'條件不合法；請選擇顏色、AND／OR，能源門檻需為 20～80。',
+    return {ok:good,title:'條件邏輯挑戰',rule:good?'顏色為 '+COLOR_LABEL[spec.color]+'（'+spec.color+'） '+connective+' 能源 > '+spec.threshold:'條件不合法；請選擇顏色、AND／OR，能源門檻需為 20～80。',
       hint:'請注意 OR 是「或」，AND 才是「且」。操作員的條件積木需與預覽一致。'};
   }
   const good=Number.isInteger(spec.target)&&spec.target>=2&&spec.target<=10;
