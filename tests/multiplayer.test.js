@@ -51,7 +51,7 @@ test('teacher authentication, room membership, role isolation, full stage lifecy
 });
 
 test('failed attempts, hints, retry, feedback, and restricted teacher controls',async()=>{
-  const t=await connect(),a=await connect(),b=await connect(),outsider=await connect();
+  const t=await connect(),a=await connect(),b=await connect(),outsider=await connect(),extra=await connect();
   const created=await send(t,'room:create');
   assert.equal(created.ok,true);
   const code=created.code;
@@ -70,7 +70,8 @@ test('failed attempts, hints, retry, feedback, and restricted teacher controls',
   const first=await send(a,'room:join',{code,nickname:'偵測員'});
   const second=await send(b,'room:join',{code,nickname:'執行員'});
   assert.equal(first.ok,true);assert.equal(second.ok,true);
-  assert.equal((await send(outsider,'room:join',{code,nickname:'第三位'})).ok,false);
+  assert.equal((await send(outsider,'room:join',{code,nickname:'第三位'})).ok,true);
+  assert.equal((await send(extra,'room:join',{code,nickname:'第四位'})).ok,false);
   assert.equal((await send(outsider,'room:join',{code,token:'invalid-token'})).ok,false);
   assert.equal((await send(a,'teacher:action',{action:'start'})).ok,false);
   assert.equal((await send(t,'teacher:action',{action:'config',difficulty:'advanced',duration:2})).ok,true);

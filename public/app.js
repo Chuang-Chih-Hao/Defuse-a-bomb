@@ -15,7 +15,7 @@ const STAGE_HELP={
   debug:'系統核心同時存在順序、if 判斷與 for 迴圈三類 Bug。<br>分析員負責檢查規格，操作員修改三處錯誤，再觀察追蹤結果。',
   lab:'設計者自訂數位邏輯規則，另一人負責破解。<br>內建三種任務：自訂執行順序、改造布林條件、設計迴圈陷阱。'
 };
-const DEFUSE_UI_VERSION='1.1.1';
+const DEFUSE_UI_VERSION='1.3.0';
 const socket=io({reconnection:true,reconnectionDelay:500,reconnectionDelayMax:4000});
 let saved=null;
 try{saved=JSON.parse(localStorage.getItem('defuse-identity')||'null');}catch{}
@@ -98,9 +98,9 @@ socket.on('room:snapshot',data=>{
   if(!self){ // create/join acknowledgement may arrive after first snapshot
     return;
   }
-  const assignment=[data.mode,data.stageIndex,data.labRounds,data.role].join(':');
+  const assignment=[data.mode,data.stageIndex,data.labRounds,data.role,JSON.stringify(data.assignment)].join(':');
   if(lastAssignment && assignment!==lastAssignment && self.role==='student'){
-    toast('🔄 角色已交換！你現在是'+(data.role==='analyst'?'程式分析員：先讀任務卡並向隊友說明。':'拆彈操作員：依隊友說明修改積木。'));
+    toast('🔄 這關你的職責：'+(data.role==='analyst'?'分析員，讀任務卡並指揮隊友。':data.role==='operator'?'操作員，修改積木並執行。':'觀察／支援員，參與討論，下一關輪換。'));
     beep('success');
   }
   lastAssignment=assignment;
@@ -122,9 +122,9 @@ function updateClock(){
 }
 setInterval(updateClock,180);
 function you(){return self?.role==='student' ? snapshot?.members.find(x=>x.slot===self.slot):null;}
-function roleName(x){return x==='analyst'?'程式分析員':x==='operator'?'拆彈操作員':x==='teacher'?'教師監控':'任務觀察員';}
+function roleName(x){return x==='analyst'?'程式分析員':x==='operator'?'拆彈操作員':x==='teacher'?'教師監控':'觀察／支援員';}
 function canEdit(){return snapshot?.role==='operator'&&snapshot?.status==='active';}
-function canAnalyze(){return snapshot?.role==='analyst'&&snapshot?.status==='active';}
+function canAnalyze(){return (snapshot?.role==='analyst'||(snapshot?.role==='teacher'&&snapshot?.teacherAnalyst))&&snapshot?.status==='active';}
 function colorCard(v,i,kind){
   const name=kind==='sequence' ? (COLOR_LABEL[v]||v) : (STEP_LABEL[v]||v);
   const length=kind==='debug'?snapshot.puzzle.blocks.order.length:snapshot.puzzle.blocks.length;
@@ -205,8 +205,9 @@ function renderTurn(){
   banner.dataset.phase=phase;
   const analyst=snapshot.members.find(m=>m.role==='analyst');
   const operator=snapshot.members.find(m=>m.role==='operator');
-  const analystName=analyst?.nickname||'分析員';
-  const operatorName=operator?.nickname||'操作員';
+  const analystName=analyst?.nickname||(snapshot.analystIsTeacher?'老師（兼分析員）':'待指派');
+  const operatorName=operator?.nickname||'等待學生';
+  const observer=snapshot.members.find(m=>m.role==='observer');
   const activeName=phase==='approve'||phase==='brief'?analystName:operatorName;
   const actionTexts={
     brief:'① 分析員先閱讀任務卡、準備向隊友說明',
@@ -221,11 +222,11 @@ function renderTurn(){
   if(snapshot.status==='lobby'){
     $('turnSymbol').textContent='⌛';
     $('turnTitle').textContent='等待老師開始任務';
-    $('turnDescription').textContent='老師建立房間 → 兩位學生加入 → 分配分析員與操作員';
+    $('turnDescription').textContent='至少一位學生加入就能開始；最多三位學生，關卡輪流分工。';
   }else if(snapshot.mode==='lab'&&!snapshot.puzzle){
     $('turnSymbol').textContent='🧪';
-    $('turnTitle').textContent=aRole==='analyst'?'你是設計分析員：現在請製作並發布題目':aRole==='operator'?'等待分析員發布新挑戰':'實驗室準備中：請分析員發布題目';
-    $('turnDescription').textContent=aRole==='analyst'?'選擇任務類型 → 修改規則 → 查看預覽 → 按發布。操作員會收到同步題目。':
+    $('turnTitle').textContent=(aRole==='analyst'||(aRole==='teacher'&&snapshot.teacherAnalyst))?'你是設計分析員：現在請製作並發布題目':aRole==='operator'?'等待分析員發布新挑戰':'實驗室準備中：請分析員發布題目';
+    $('turnDescription').textContent=(aRole==='analyst'||(aRole==='teacher'&&snapshot.teacherAnalyst))?'選擇任務類型 → 修改規則 → 查看預覽 → 按發布。操作員會收到同步題目。':
       '分析員還在設計題目，發布後就能操作 Scratch 積木。';
   }else if(phase==='done'){
     $('turnSymbol').textContent=snapshot.status==='won'?'🏆':'↺';
@@ -251,9 +252,16 @@ function renderTurn(){
       $('turnDescription').textContent=phase==='approve'?'你目前還不能執行，請請隊友先檢查並核准你的程式。':
         phase==='run'?'已收到核准。按下執行後觀察動畫，若錯誤再與隊友討論修正。':
         '使用右側的 Scratch 積木：拖曳排序、選擇 AND/OR、調整數字；不要猜答案。';
+    }else if(aRole==='observer'){
+      $('turnTitle').textContent='這關你是觀察／支援員';
+      $('turnDescription').textContent='觀看積木與程式結果、協助隊友思考，下一關輪換到操作角色。';
+    }else if(aRole==='teacher'&&snapshot.teacherAnalyst){
+      $('turnTitle').textContent=phase==='approve'?'老師兼分析員：檢查積木並按「③ 核准」':
+        phase==='run'?'老師已核准：請學生操作員執行':'老師兼分析員：指導學生修改程式';
+      $('turnDescription').textContent='只有一位學生時，由老師負責分析及核准，學生操作積木並執行。';
     }else{
       $('turnTitle').textContent='教師監控：'+actionTexts[phase];
-      $('turnDescription').textContent='分析員 '+analystName+' ／ 操作員 '+operatorName+'；每關會交換角色。';
+      $('turnDescription').textContent='分析員 '+analystName+' ／ 操作員 '+operatorName+'；每關輪換角色。';
     }
   }
   const doing=phase==='done'?'已結算':phase==='paused'?'已暫停':(snapshot.mode==='lab'&&!snapshot.puzzle)?'設計中':actionTexts[phase];
@@ -261,6 +269,7 @@ function renderTurn(){
     '<div class="team-roster-title">本關隊伍配置</div>'+
     '<div class="team-roster-line"><span class="team-role analyst">🔎 分析員</span><strong title="'+escapeHtml(analystName)+'">'+escapeHtml(analystName)+'</strong></div>'+
     '<div class="team-roster-line"><span class="team-role operator">🧩 操作員</span><strong title="'+escapeHtml(operatorName)+'">'+escapeHtml(operatorName)+'</strong></div>'+
+    (observer?'<div class="team-roster-line"><span class="team-role observer">👁 觀察員</span><strong title="'+escapeHtml(observer.nickname)+'">'+escapeHtml(observer.nickname)+'</strong></div>':'')+
     '<div class="team-step-caption" title="'+escapeHtml(doing)+'">'+escapeHtml(doing)+'</div>';
   const order=['brief','edit','approve','run'];
   const current=order.indexOf(phase);
@@ -272,7 +281,7 @@ function renderAgents(){
   const phase=currentPhase();
   const current=phase==='approve'?'analyst':phase==='run'||phase==='edit'?'operator':null;
   $('agents').innerHTML=(snapshot.members.length ? snapshot.members : [{slot:0,nickname:'等待學生 A',role:'analyst',online:false},{slot:1,nickname:'等待學生 B',role:'operator',online:false}]).map(m=>
-    '<div class="agent '+(self?.role==='student'&&self.slot===m.slot?'self ':'')+(current===m.role?'active-agent':'')+'"><div class="avatar">'+(m.slot===0?'⌘':'◇')+'</div><div class="agent-info"><b>'+
+    '<div class="agent '+(self?.role==='student'&&self.slot===m.slot?'self ':'')+(current===m.role?'active-agent':'')+'"><div class="avatar">'+(['⌘','◇','◎'][m.slot]||'◈')+'</div><div class="agent-info"><b>'+
     escapeHtml(m.nickname)+(self?.role==='student'&&self.slot===m.slot?' · 你':'')+'</b><small>'+escapeHtml(roleName(m.role))+
     '</small>'+(current===m.role?'<span class="agent-acting">● 目前需要行動</span>':'')+
     '<div class="stats-micro">修改 '+(m.edits||0)+' · 執行 '+(m.runs||0)+' · 失誤 '+(m.errors||0)+' · 提示 '+(m.hints||0)+'</div></div><i class="led '+(m.online?'online':'')+'"></i></div>'
@@ -282,9 +291,9 @@ function renderAgents(){
 function renderMission(){
   const stage=snapshot.stage;
   $('roomLabel').textContent=snapshot.code;
-  $('rolePill').textContent=roleName(snapshot.role)+(self?.role==='student'?' / 玩家 '+(self.slot===0?'A':'B'):'');
+  $('rolePill').textContent=roleName(snapshot.role)+(self?.role==='student'?' / 玩家 '+(['A','B','C'][self.slot]||'?'):'');
   $('rolePill').className='pill role-pill '+snapshot.role;
-  $('stageCaption').textContent=snapshot.mode==='lab'?'CREATOR LAB / 自訂挑戰':'MISSION '+String(snapshot.stageIndex+1).padStart(2,'0')+' / 04';
+  $('stageCaption').textContent=snapshot.mode==='lab'?'CREATOR LAB / 自訂挑戰':'MISSION '+String(snapshot.stageIndex+1).padStart(2,'0')+' / 07';
   $('stageHeading').textContent=snapshot.title;
   $('score').textContent=String(snapshot.teamScore).padStart(4,'0');
   $('difficultyPill').textContent=snapshot.difficulty==='advanced'?'進階模式':'基礎模式';
@@ -310,7 +319,7 @@ function renderMission(){
   const analyst=snapshot.role==='analyst'||snapshot.role==='teacher';
   $('missionPanel').dataset.view=analyst?'analyst':'operator';
   if(snapshot.status==='lobby'){
-    $('taskInstructions').innerHTML='<div class="mission-card-title">任務即將開始</div><p class="mission-card-explain">等待兩位學生加入。老師按下「開始任務」後，分析員會在此看到本關目標，操作員則負責右側積木。</p>';
+    $('taskInstructions').innerHTML='<div class="mission-card-title">任務即將開始</div><p class="mission-card-explain">至少一位學生加入後老師就能開始；兩人時學生互換角色，三人時輪流擔任分析員、操作員及觀察員。</p>';
   }else if(snapshot.mode==='lab'&&!p){
     $('taskInstructions').innerHTML=analyst?
       '<div class="mission-card-title">設計專屬程式挑戰</div><div class="mission-rule">到右側「挑戰實驗室」挑選任務，設定正確規則並確認預覽，再發布給隊友。</div><p>注意：任務發布前不會開始倒數。</p>':
@@ -346,15 +355,15 @@ function renderTeacher(){
   if(document.activeElement!==$('difficultySelect'))$('difficultySelect').value=snapshot.difficulty;
   $('stageSelect').value=String(snapshot.stageIndex);
   const actionAvailable={
-    start:snapshot.status==='lobby'&&snapshot.members.length===2,
+    start:snapshot.status==='lobby'&&snapshot.members.length>=1,
     pause:snapshot.status==='active',resume:snapshot.status==='paused'&&Boolean(snapshot.puzzle),
-    retry:snapshot.members.length===2,
-    next:snapshot.members.length===2&&snapshot.mode==='mission'&&snapshot.stageIndex<3,
-    lab:snapshot.members.length===2,
+    retry:snapshot.members.length>=1,
+    next:snapshot.members.length>=1&&snapshot.mode==='mission'&&snapshot.stageIndex<6,
+    lab:snapshot.members.length>=1,
     labNext:snapshot.mode==='lab',reset:true
   };
   document.querySelectorAll('[data-teacher]').forEach(btn=>btn.disabled=!actionAvailable[btn.dataset.teacher]);
-  $('teacherSummary').innerHTML='<strong>課堂即時監控：</strong> 玩家 '+snapshot.members.length+'/2 人 · '+'本關 '+snapshot.attempts+' 次執行 · 累積 '+snapshot.history.length+
+  $('teacherSummary').innerHTML='<strong>課堂即時監控：</strong> 玩家 '+snapshot.members.length+'/3 人 · '+(snapshot.teacherAnalyst?'老師兼任分析員 · ':'')+'本關 '+snapshot.attempts+' 次執行 · 累積 '+snapshot.history.length+
     ' 次結算 · '+(snapshot.status==='active'?'關卡倒數中':'倒數已停止')+
     ' · 請在 40 分鐘課程與 10 分鐘休息時自行使用「暫停」。';
 }
@@ -365,7 +374,7 @@ function renderHistory(){
       sequence:'執行順序',condition:'條件判斷',loop:'迴圈',debug:'綜合除錯',lab:'實驗室'
     }[h.stage]||h.stage)+'<br>'+(h.success?'✓ 成功':'× 重試')+' · '+h.score+' 分 · '+h.attempts+' 次</div>').join('')+'</div>':'<div class="empty">完成關卡後在此顯示隊伍成績。</div>')+
     '<p>學習目標：掌握順序、布林邏輯、迴圈，並透過執行追蹤逐步 Debug。</p>';
-  const canFeedback=snapshot.role==='analyst'||snapshot.role==='operator';
+  const canFeedback=snapshot.role!=='teacher';
   $('feedbackForm').hidden=!canFeedback;
 }
 function labSpec(){
@@ -400,12 +409,12 @@ function renderLab(){
   const active=snapshot.mode==='lab';
   $('labPanel').hidden=!active;
   if(!active)return;
-  const designing=(snapshot.role==='analyst') &&
+  const designing=(snapshot.role==='analyst'||(snapshot.role==='teacher'&&snapshot.teacherAnalyst)) &&
     (snapshot.status==='won'||snapshot.status==='failed'||(snapshot.status==='paused'&&!snapshot.puzzle));
   const target=$('labDesigner');
   if(!designing){
     const launched=Boolean(snapshot.puzzle);
-    const isAnalyst=snapshot.role==='analyst';
+    const isAnalyst=snapshot.role==='analyst'||(snapshot.role==='teacher'&&snapshot.teacherAnalyst);
     target.innerHTML='<div class="lab-status">'+(launched?
       '✅ 已發布挑戰：'+escapeHtml(snapshot.puzzle.label)+
       '。'+(snapshot.status==='active'?'目前正在進行，不能修改已發布的題目。':'本回合已結束，等待老師或分析員安排下一題。'):
@@ -471,7 +480,7 @@ $('createBtn').addEventListener('click',async()=>{
   if(!r.ok)return;
   saveIdentity({code:r.code,token:r.token,role:'teacher'});
   $('lobbyScreen').hidden=true;$('gameScreen').hidden=false;$('leaveBtn').hidden=false;
-  $('roomCode').value=r.code;toast('房間 '+r.code+' 已建立，請分享代碼給兩位學生。');
+  $('roomCode').value=r.code;toast('房間 '+r.code+' 已建立，分享代碼給學生；至少一人就能開始（最多三人）。');
   // A snapshot sent during create might precede the acknowledgement.
   await send('teacher:action',{action:'config',duration:8,difficulty:'basic'},true);
 });
@@ -484,7 +493,7 @@ $('joinBtn').addEventListener('click',async()=>{
   if(!r.ok)return;
   saveIdentity({code:r.code,token:r.token,role:'student',slot:r.slot});
   $('lobbyScreen').hidden=true;$('gameScreen').hidden=false;$('leaveBtn').hidden=false;
-  toast('加入成功！請等待老師與另一位同學。');
+  toast('加入成功！老師可在至少一位學生加入後開始。');
   // Request a fresh snapshot through an idempotent rejoin.
   await send('room:join',{code:r.code,token:r.token},true);
 });

@@ -30,7 +30,7 @@ function newRoom() {
     puzzle: null, revision: 0, approved: -1, stability: 100, teamScore: 0,
     stageScore: 0, hintsLeft: 2, attempts: 0, lastResult: null, resultSerial: 0,
     messages: [], history: [], labRounds: 0, designerSpec: null,
-    stepPlan:null,stepState:null
+    stepPlan:null,stepState:null, assignment:null
   };
   rooms.set(code,room);
   return { room,teacherToken };
@@ -38,13 +38,29 @@ function newRoom() {
 function stageName(room) {
   return room.mode === 'lab' ? 'lab' : STAGES[room.stageIndex];
 }
-function getAnalystSlot(room) {
-  return (room.stageIndex + (room.mode === 'lab' ? room.labRounds : 0)) % 2;
+// 每一關固定角色，不因有人在進行中加入或重新整理而突然改變。
+function chooseAssignment(room) {
+  const count=room.members.length;
+  if(count<1)return null;
+  // 僅一位學生：教師負責分析及核准，學生始終負責修改與執行。
+  if(count===1)return {analystSlot:null,operatorSlot:room.members[0].slot};
+  // 兩人互換；三人每關有一位觀察員，依序輪換讓所有人實作。
+  const round=room.stageIndex+(room.mode==='lab'?room.labRounds:0);
+  return {
+    analystSlot:room.members[round%count].slot,
+    operatorSlot:room.members[(round+1)%count].slot
+  };
 }
-function roleOf(room, member) {
-  return member.slot === getAnalystSlot(room) ? 'analyst' : 'operator';
+function roleOf(room,member) {
+  const assignment=room.assignment||chooseAssignment(room);
+  if(!assignment)return 'observer';
+  if(member.slot===assignment.analystSlot)return 'analyst';
+  if(member.slot===assignment.operatorSlot)return 'operator';
+  return 'observer';
 }
 function begin(room, spec = null) {
+  if(room.members.length<1)throw Error('至少需要一位學生才能開始');
+  room.assignment=chooseAssignment(room);
   if (spec) room.designerSpec = spec;
   room.puzzle = room.mode === 'lab' ? (room.designerSpec ? makePuzzle('lab',false,room.designerSpec) : null)
     : makePuzzle(STAGES[room.stageIndex],room.difficulty === 'advanced');
@@ -89,6 +105,10 @@ function publicState(room, member = null, teacher = false) {
   const role = teacher ? 'teacher' : member ? roleOf(room,member) : 'spectator';
   return {
     code: room.code, mode: room.mode, role,
+    teacherAnalyst:Boolean(teacher&&room.assignment&&room.assignment.analystSlot===null),
+    analystIsTeacher:Boolean(room.assignment&&room.assignment.analystSlot===null),
+    studentCapacity:3, studentsPresent:room.members.length,
+    assignment:room.assignment?{...room.assignment}:null,
     stage: stageName(room), stageIndex: room.stageIndex, title: TITLES[stageName(room)],
     difficulty: room.difficulty, duration: room.duration, status: room.status,
     remainingMs: sleepClock(room), serverTime: Date.now(),
@@ -106,8 +126,8 @@ function publicState(room, member = null, teacher = false) {
     step: room.stepState ? structuredClone(room.stepState) : null,
     puzzle: room.puzzle ? visiblePuzzle(room.puzzle,teacher || role === 'analyst') : null,
     canEdit: role === 'operator' && room.status === 'active',
-    canAnalyze: role === 'analyst' && room.status === 'active',
-    canDesign: role === 'analyst' && room.mode === 'lab' &&
+    canAnalyze: (role === 'analyst' || (teacher&&room.assignment?.analystSlot===null)) && room.status === 'active',
+    canDesign: (role === 'analyst' || (teacher&&room.assignment?.analystSlot===null)) && room.mode === 'lab' &&
       (room.status === 'paused' || room.status === 'won' || room.status === 'failed')
   };
 }
@@ -115,7 +135,7 @@ function createGameServer() {
   const app = express();
   app.disable('x-powered-by');
   app.get('/health', (_, res) => res.json({ok:true,service:'defuse-a-bomb',rooms:rooms.size,uptime:Math.round(process.uptime())}));
-  app.get('/api/info', (_, res) => res.json({name:'程式炸彈拆除專家：最後倒數',version:'1.2.0',stages:STAGES}));
+  app.get('/api/info', (_, res) => res.json({name:'程式炸彈拆除專家：最後倒數',version:'1.3.0',stages:STAGES}));
   app.use(express.static(path.join(__dirname,'../public'),{
     maxAge:0,
     setHeaders(res, filePath) {
@@ -139,6 +159,17 @@ function createGameServer() {
     const m = room.members.find(x=>x.tokenHash === socket.data.tokenHash);
     if (!m || m.socketId !== socket.id) throw Error('玩家身分已失效，請重新加入');
     return {teacher:false,member:m};
+  }
+  // 教師僅在「教師＋一位學生」模式擔任分析員；其他人數下只能監看與控場。
+  function analysisGuard(socket) {
+    const room=rooms.get(socket.data.roomCode);
+    const auth=check(socket,room);
+    if(room.status!=='active'||!room.puzzle)throw Error('關卡尚未開始或已結束');
+    if(auth.teacher){
+      if(room.assignment?.analystSlot!==null)throw Error('目前分析員由學生擔任');
+      return {room,role:'analyst',member:null};
+    }
+    return {room,role:roleOf(room,auth.member),member:auth.member};
   }
   function playGuard(socket) {
     const room = rooms.get(socket.data.roomCode);
@@ -186,7 +217,7 @@ function createGameServer() {
       let freshToken=null;
       if(!member) {
         if(token) throw Error('原有身分憑證無效，不能替換他人身分');
-        if(room.members.length>=2) throw Error('此房間已經有兩位學生');
+        if(room.members.length>=3) throw Error('此房間最多可加入三位學生');
         const nick=sanitize(nickname,18);
         if(nick.length<1) throw Error('請輸入暱稱');
         freshToken=newToken();
@@ -216,7 +247,7 @@ function createGameServer() {
         }
         if(room.status==='lobby') room.remainingMs=room.duration*60000;
       } else if(a==='start'){
-        if(room.members.length!==2) throw Error('需要兩位學生加入才能開始');
+        if(room.members.length<1) throw Error('至少需要一位學生才能開始');
         if(room.status!=='lobby') throw Error('遊戲已經開始');
         begin(room);
       } else if(a==='pause'){
@@ -226,15 +257,15 @@ function createGameServer() {
         if(room.status!=='paused' || !room.puzzle) throw Error('目前沒有可恢復的關卡');
         room.deadline=Date.now()+room.remainingMs;room.status='active';
       } else if(a==='next' || a==='stage'){
-        if(room.members.length!==2) throw Error('需要兩位學生');
+        if(room.members.length<1) throw Error('至少需要一位學生');
         const next=a==='stage'?data.index:room.stageIndex+1;
         if(!Number.isInteger(next) || next<0 || next>=STAGES.length) throw Error('已到最後關卡，請進入挑戰實驗室');
         room.mode='mission';room.stageIndex=next;room.designerSpec=null;begin(room);
       } else if(a==='retry'){
-        if(room.members.length!==2) throw Error('需要兩位學生');
+        if(room.members.length<1) throw Error('至少需要一位學生');
         begin(room);
       } else if(a==='lab'){
-        if(room.members.length!==2) throw Error('需要兩位學生');
+        if(room.members.length<1) throw Error('至少需要一位學生');
         room.mode='lab';room.labRounds=0;room.designerSpec=null;begin(room);
       } else if(a==='labNext'){
         if(room.mode!=='lab') throw Error('尚未進入挑戰實驗室');
@@ -243,7 +274,7 @@ function createGameServer() {
         room.mode='mission';room.stageIndex=0;room.status='lobby';room.puzzle=null;
         room.deadline=null;room.remainingMs=room.duration*60000;room.teamScore=0;
         room.history=[];room.labRounds=0;room.messages=[];room.lastResult=null;
-        room.stepPlan=null;room.stepState=null;
+        room.stepPlan=null;room.stepState=null;room.assignment=null;
         for(const m of room.members) Object.assign(m,{errors:0,hints:0,edits:0,runs:0,messages:0,feedback:null});
       } else throw Error('未知教師指令');
       broadcast(room);return {status:room.status};
@@ -259,7 +290,7 @@ function createGameServer() {
       broadcast(room);return {revision:room.revision};
     });
     handler(socket,'analysis:approve',()=>{
-      const {room,role}=playGuard(socket);
+      const {room,role}=analysisGuard(socket);
       if(role!=='analyst') throw Error('只有程式分析員能核准執行');
       room.approved=room.revision;
       room.stepPlan=null;
@@ -267,12 +298,13 @@ function createGameServer() {
       broadcast(room);return {approved:true};
     });
     handler(socket,'analysis:message',({message})=>{
-      const {room,role,member}=playGuard(socket);
+      const {room,role,member}=analysisGuard(socket);
       if(role!=='analyst') throw Error('只有程式分析員可以傳送分析指令');
       const txt=sanitize(message,100);
       if(!txt) throw Error('請輸入訊息');
       room.messages.push({from:member.nick,text:txt,time:Date.now()});
-      member.messages++;broadcast(room);return {};
+      if(member)member.messages++;
+      broadcast(room);return {};
     });
     // 所有扣分、穩定度與成功判定均由伺服器決定，瀏覽器只能請求「下一步」。
     function applyAttempt(room,member,result) {
@@ -351,8 +383,9 @@ function createGameServer() {
     });
     handler(socket,'lab:publish',({spec})=>{
       const room=rooms.get(socket.data.roomCode);
-      const {member}=check(socket,room,true);
-      if(room.mode!=='lab' || roleOf(room,member)!=='analyst') throw Error('只有目前的設計分析員能設計挑戰');
+      const {teacher,member}=check(socket,room);
+      const allowed=teacher ? room.assignment?.analystSlot===null : roleOf(room,member)==='analyst';
+      if(room.mode!=='lab'||!allowed) throw Error('只有目前的設計分析員能設計挑戰');
       if(!['won','failed'].includes(room.status) && !(room.status==='paused' && !room.puzzle)) throw Error('目前挑戰尚未結束；暫停中的任務不能被覆蓋');
       const clean=validateLabSpec(spec);
       begin(room,clean);

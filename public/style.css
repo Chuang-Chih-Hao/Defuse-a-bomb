@@ -422,3 +422,16 @@ pre{font:12px/1.7 'Consolas','Courier New',monospace;color:#9ce7ed;background:#0
   .code-line{font-size:12px;white-space:pre;min-width:max-content}
   .watch-window{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+
+/* v1.3.0 — teacher-led classrooms with one, two or three students. */
+.team-role.observer{color:#d0b4ff}
+.team-roster-line:has(.observer){padding-top:5px;border-top:1px dashed #4f557b}
+.role-pill.observer{background:#2e2948;border-color:#a28edc;color:#e0d6ff}
+.agent:has(.agent-acting){border-color:#66c2a7}
+#teacherSummary{line-height:1.85}
+@media(max-width:610px){
+  .turn-partner{grid-template-columns:minmax(0,1fr)}
+  .team-roster-title,.team-step-caption{grid-column:1/-1}
+  .team-roster-line{grid-template-columns:110px minmax(0,1fr)}
+}
