@@ -114,44 +114,55 @@ function canEdit(){return snapshot?.role==='operator'&&snapshot?.status==='activ
 function canAnalyze(){return snapshot?.role==='analyst'&&snapshot?.status==='active';}
 function colorCard(v,i,kind){
   const name=kind==='sequence' ? (COLOR_LABEL[v]||v) : (STEP_LABEL[v]||v);
-  return '<div class="block '+(kind==='debug'?'purple':'')+'" draggable="'+(canEdit()?'true':'false')+'" data-row="'+i+'" role="listitem">'+
-    '<div class="block-header"><div class="block-left"><span class="block-dot"></span><div><b>'+String(i+1).padStart(2,'0')+' / '+escapeHtml(name)+'</b><div class="stats-micro mono">'+(kind==='sequence'?'activate("'+escapeHtml(v)+'")':escapeHtml(v.toLowerCase())+'()')+'</div></div></div>'+
-    '<div class="block-tools"><button type="button" data-move="'+i+':-1" '+(!canEdit()||i===0?'disabled':'')+' aria-label="上移">↑</button><button type="button" data-move="'+i+':1" '+(!canEdit()||i===(kind==='debug'?snapshot.puzzle.blocks.order.length:snapshot.puzzle.blocks.length)-1?'disabled':'')+' aria-label="下移">↓</button></div></div></div>';
+  const length=kind==='debug'?snapshot.puzzle.blocks.order.length:snapshot.puzzle.blocks.length;
+  return '<div class="block scratch-command" draggable="'+(canEdit()?'true':'false')+'" data-row="'+i+'" role="listitem">'+
+    '<div class="block-header"><div class="block-left"><span class="block-dot"></span><div><b>'+String(i+1).padStart(2,'0')+'　啟動 '+escapeHtml(name)+'</b></div></div>'+
+    '<div class="block-tools"><button type="button" data-move="'+i+':-1" '+(!canEdit()||i===0?'disabled':'')+' aria-label="上移一個方塊">↑</button>'+
+    '<button type="button" data-move="'+i+':1" '+(!canEdit()||i===length-1?'disabled':'')+' aria-label="下移一個方塊">↓</button></div></div></div>';
 }
 function choice(field,values,selected,labels={}){
-  return '<select data-field="'+escapeHtml(field)+'" '+(!canEdit()?'disabled':'')+'>'+htmlOptions(values,selected,labels)+'</select>';
+  return '<select aria-label="'+escapeHtml(field)+'" data-field="'+escapeHtml(field)+'" '+(!canEdit()?'disabled':'')+'>'+htmlOptions(values,selected,labels)+'</select>';
 }
 function integer(field,selected,min,max){
-  return '<input type="number" inputmode="numeric" data-field="'+escapeHtml(field)+'" value="'+escapeHtml(selected)+'" min="'+min+'" max="'+max+'" step="1" '+(!canEdit()?'disabled':'')+'>';
+  return '<input type="number" inputmode="numeric" aria-label="'+escapeHtml(field)+'" data-field="'+escapeHtml(field)+'" value="'+escapeHtml(selected)+'" min="'+min+'" max="'+max+'" step="1" '+(!canEdit()?'disabled':'')+'>';
 }
 function sequenceEditor(blocks,kind){
-  return '<div class="block-label">點擊 ↑ ↓ 調整順序，或拖曳卡片重新排列。分析員能看見目標順序。</div><div id="orderList" role="list">'+blocks.map((v,i)=>colorCard(v,i,kind)).join('')+'</div>';
+  return '<div class="scratch-note">積木由上往下執行；按 ↑ ↓ 或拖曳積木調整順序。真正的目標由分析員提供。</div>'+
+    '<div class="scratch-hat">🚩 當按下「執行程式」</div>'+
+    '<div id="orderList" class="scratch-stack" role="list">'+blocks.map((v,i)=>colorCard(v,i,kind)).join('')+'</div>';
 }
 function conditionEditor(blocks,standalone=true){
-  return '<div class="block purple"><b>⬡ IF / ELSE · 布林邏輯</b><div class="block-options">如果 顏色 = '+
-    choice('color',COLORS,blocks.color,COLOR_LABEL)+
-    ' <span> '+choice('mode',['AND','OR'],blocks.mode,{AND:'且 AND',OR:'或 OR'})+' </span>能源 &gt; '+
-    integer('threshold',blocks.threshold,0,100)+'</div></div>'+
-    (blocks.useSecond?'<div class="block purple"><b>＋ 進階 OR 判斷</b><div class="block-options">或 顏色 = '+
-      choice('secondColor',COLORS,blocks.secondColor,COLOR_LABEL)+
-      ' 且能源 &gt; '+integer('secondThreshold',blocks.secondThreshold,0,100)+'</div></div>':'')+
-    (standalone?'<div class="block green">✓ 條件成立 → unlock()</div><div class="block orange">✕ 否則 → keepLocked()</div>':'');
+  return '<div class="scratch-c purple"><div class="scratch-c-head">⬡ 如果 IF</div>'+
+    '<div class="scratch-c-controls">顏色是 '+choice('color',COLORS,blocks.color,COLOR_LABEL)+
+    choice('mode',['AND','OR'],blocks.mode,{AND:'且 AND',OR:'或 OR'})+' 能源 &gt; '+
+    integer('threshold',blocks.threshold,0,100)+'</div>'+
+    (blocks.useSecond?'<div class="scratch-c-controls">或（OR）顏色是 '+choice('secondColor',COLORS,blocks.secondColor,COLOR_LABEL)+
+      ' 且能源 &gt; '+integer('secondThreshold',blocks.secondThreshold,0,100)+'</div>':'')+
+    '<div class="scratch-c-body"><span class="scratch-inner green">✓ 那麼 → 解鎖數位模組</span></div>'+
+    (standalone?'<div class="scratch-c-else">否則 ELSE<div class="scratch-c-body"><span class="scratch-inner">保持鎖定</span></div></div>':'')+
+    '<div class="scratch-c-footer"></div></div>';
 }
 function loopEditor(blocks){
-  return '<div class="block orange"><b>∞ FOR / 重複執行</b><div class="block-options">從 i = '+integer('start',blocks.start,0,11)+' 開始</div>'+
-    '<div class="block-options">當 i &lt; '+integer('limit',blocks.limit,1,12)+' 時執行</div>'+
-    '<div class="block-options">每次讓 i 增加 '+integer('step',blocks.step,1,6)+'</div></div>'+
-    '<div class="block green">↳ disableModule() · 清除一個數位模組</div>';
+  return '<div class="scratch-c orange"><div class="scratch-c-head">↺ 重複執行 FOR</div>'+
+    '<div class="scratch-c-controls">從 i = '+integer('start',blocks.start,0,11)+' 開始</div>'+
+    '<div class="scratch-c-controls">當 i &lt; '+integer('limit',blocks.limit,1,12)+' 持續重複</div>'+
+    '<div class="scratch-c-controls">每次 i 增加 '+integer('step',blocks.step,1,6)+'</div>'+
+    '<div class="scratch-c-body"><span class="scratch-inner green">清除一個數位模組</span></div>'+
+    '<div class="scratch-c-footer"></div></div>';
 }
 function renderEditor(){
   const p=snapshot.puzzle;
-  $('editorMode').textContent=canEdit()?'可編輯 · 操作員':'只讀 · '+roleName(snapshot.role);
+  $('editorMode').textContent=canEdit()?'你可以修改':'等待操作員';
   $('approveBtn').disabled=!canAnalyze()||snapshot.approved;
   $('runBtn').disabled=!canEdit()||!snapshot.approved;
   $('hintBtn').disabled=snapshot.status!=='active'||snapshot.role==='teacher'||snapshot.hintsLeft===0;
+  $('editorTip').textContent=snapshot.status!=='active'?'關卡目前無法操作。':
+    snapshot.role==='analyst'?'檢查右側積木後，點「③ 分析員核准」。每次修改後都要重新核准。':
+    snapshot.role==='operator'?(snapshot.approved?'分析員已核准！現在請點「④ 操作員執行」。':'修改積木後，請分析員按「③ 核准」，才能執行。'):
+    '教師可監看積木與 Python，實際修改由操作員進行。';
   if(!p){
     $('editor').innerHTML='<div class="empty">等待老師開始任務，或分析員發布實驗挑戰。</div>';
-    $('codeOutput').textContent='// 等待指令載入';
+    $('codeOutput').textContent='# 等待程式積木';
     return;
   }
   let output='';
@@ -159,12 +170,12 @@ function renderEditor(){
   if(p.kind==='condition')output=conditionEditor(p.blocks);
   if(p.kind==='loop')output=loopEditor(p.blocks);
   if(p.kind==='debug'){
-    output='<div class="block-label">① 修正執行順序</div>'+sequenceEditor(p.blocks.order,'debug')+
-      '<div class="block-label">② 修正條件判斷</div>'+conditionEditor(p.blocks,false)+
-      '<div class="block-label">③ 修正迴圈次數</div>'+loopEditor(p.blocks);
+    output='<div class="scratch-group-title">① 修正執行順序</div>'+sequenceEditor(p.blocks.order,'debug')+
+      '<div class="scratch-group-title">② 修正 IF 條件</div>'+conditionEditor(p.blocks,false)+
+      '<div class="scratch-group-title">③ 修正 FOR 迴圈</div>'+loopEditor(p.blocks);
   }
   $('editor').innerHTML=output;
-  $('codeOutput').textContent=p.code;
+  $('codeOutput').textContent=p.python || '# 等待程式積木';
 }
 function renderAgents(){
   $('agents').innerHTML=(snapshot.members.length ? snapshot.members : [{slot:0,nickname:'等待學生 A',role:'analyst',online:false},{slot:1,nickname:'等待學生 B',role:'operator',online:false}]).map(m=>
