@@ -53,10 +53,16 @@ async function main(){
     await a.locator('#editor [data-field=threshold]').fill('50');
     await a.locator('#editor [data-field=threshold]').press('Tab');
     await a.locator('#editor [data-field=mode]').selectOption('AND');
+    await a.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('keyColor === "RED" && power > 50'),null,{timeout:10000});
+    await b.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('keyColor === "RED" && power > 50'),null,{timeout:10000});
     await b.locator('#approveBtn').click();
     await a.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
+    console.log('STAGE2 CODE',await a.locator('#codeOutput').textContent());
     await a.locator('#runBtn').click();
-    await teacher.waitForFunction(()=>document.querySelector('#systemStatus')?.textContent.includes('安全解除'));
+    await teacher.waitForFunction(()=>document.querySelector('#attempts')?.textContent==='01',null,{timeout:10000});
+    const stage2Status=await teacher.locator('#systemStatus').textContent();
+    console.log('STAGE2 STATE',stage2Status,await teacher.locator('#tracePanel').textContent());
+    assert.match(stage2Status,/安全解除/,'Condition puzzle did not pass');
     console.log('PASS stage 2: if/else, multi-case Boolean evaluation');
 
     await teacher.locator('[data-teacher=next]').click();
@@ -95,9 +101,7 @@ async function main(){
     await a.locator('#editor [data-move="0:1"]').click();
     await a.locator('#editor [data-move="1:1"]').click();
     await a.locator('#editor [data-move="0:1"]').click();
-    // The published sequence is [BLUE,RED,GREEN] and reverse starting order [GREEN,RED,BLUE].
-    // After three swaps above it is [RED,BLUE,GREEN]; fix first two.
-    await a.locator('#editor [data-move="0:1"]').click();
+    // Three adjacent swaps transform [GREEN,RED,BLUE] to [BLUE,RED,GREEN].
     await b.locator('#approveBtn').click();
     await a.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
     await a.locator('#runBtn').click();
