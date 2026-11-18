@@ -39,6 +39,56 @@ async function main(){
       await page.locator('#gameScreen').waitFor({state:'visible'});
       await page.waitForFunction(()=>document.querySelector('#roomLabel')?.textContent!=='------');
     }
+
+    // Genuine Render runs generate unpredictable goals. Read only the analyst's
+    // on-screen briefing; operator still cannot access private correct answers.
+    const matchColors=text=>[...text.matchAll(/\b(BLUE|RED|GREEN|YELLOW)\b/g)].map(m=>m[1]);
+    async function waitBothCode(fragment){
+      await Promise.all([a,b].map(p=>p.waitForFunction(value=>
+        document.querySelector('#codeOutput')?.textContent.includes(value),fragment,{timeout:15000})));
+    }
+    async function setField(page,field,value){
+      const control=page.locator('#editor [data-field='+field+']');
+      if(await control.evaluate(el=>el.tagName==='SELECT'))await control.selectOption(String(value));
+      else {await control.fill(String(value));await control.press('Tab');}
+      await page.waitForFunction(({field,value})=>
+        String(snapshot?.puzzle?.blocks?.[field])===String(value),{field,value:String(value)},{timeout:15000});
+    }
+    async function reorderRows(operator,goal,kind='sequence'){
+      const tokenOfCode=code=>kind==='function'?
+        [...code.matchAll(/^    (purge|vent|sync|lock)\(\)$/gm)].map(x=>x[1]):
+        kind==='debug'?
+        code.split('\n').filter(x=>/^(verify|sweep|seal|report)\(\)$/.test(x)).map(x=>x.slice(0,-2)):
+        [...code.matchAll(/activate\("(BLUE|RED|GREEN|YELLOW)"\)/g)].map(x=>x[1]);
+      let order=tokenOfCode(await operator.locator('#codeOutput').textContent());
+      assert.equal(order.length,goal.length);
+      for(let i=0;i<goal.length;i++){
+        let j=order.indexOf(goal[i],i);
+        assert.ok(j>=i,'goal command missing: '+goal[i]);
+        while(j>i){
+          const attr=kind==='function'?'data-fmove':'data-move';
+          await operator.locator('#editor ['+attr+'="'+j+':-1"]').click();
+          [order[j],order[j-1]]=[order[j-1],order[j]];
+          const expected=order.join(',');
+          await operator.waitForFunction(({expected,kind})=>{
+            const text=document.querySelector('#codeOutput')?.textContent||'';
+            const rows=kind==='function'?
+              [...text.matchAll(/^    (purge|vent|sync|lock)\(\)$/gm)].map(x=>x[1]):
+              kind==='debug'?
+              text.split('\n').filter(x=>/^(verify|sweep|seal|report)\(\)$/.test(x)).map(x=>x.slice(0,-2)):
+              [...text.matchAll(/activate\("(BLUE|RED|GREEN|YELLOW)"\)/g)].map(x=>x[1]);
+            return rows.join(',')===expected;
+          },{expected,kind},{timeout:15000});
+          j--;
+        }
+      }
+      return order;
+    }
+    const parseCondition=text=>{
+      const m=text.match(/\b(BLUE|RED|GREEN|YELLOW)\b[\s\S]*?\b(AND|OR)\b[\s\S]*?能源\s*>\s*(\d+)/);
+      assert.ok(m,'cannot parse analyst condition '+text);
+      return {color:m[1],mode:m[2],threshold:Number(m[3])};
+    };
     await join(a,'學員甲');await join(b,'學員乙');
     await teacher.waitForFunction(()=>document.querySelectorAll('#agents .agent .led.online').length===2);
     await teacher.locator('[data-teacher=start]').click();
@@ -46,18 +96,19 @@ async function main(){
     assert.match(await b.locator('#rolePill').textContent(),/拆彈操作員/);
     assert.match(await a.locator('#rolePill').textContent(),/程式分析員/);
     assert.match(await a.locator('#missionPanel').textContent(),/機密|僅分析員/);
-    assert.match(await a.locator('.mission-rule').textContent(),/藍色 BLUE/);
+    const startGoal=await a.locator('.mission-rule').textContent();
+    const firstTarget=matchColors(startGoal);
+    assert.ok(firstTarget.length>=3,'Analyst must see the current private color order');
     assert.match(await a.locator('#turnTitle').textContent(),/你是程式分析員/);
     assert.match(await b.locator('#turnTitle').textContent(),/你是拆彈操作員/);
     assert.equal(await b.locator('.mission-rule').count(),0,'Operator must not see analyst answer');
     assert.equal(await b.locator('#editor .scratch-hat').count(),1,'Scratch hat should be rendered');
-    assert.match(await b.locator('#codeOutput').textContent(),/activate\("GREEN"\)/);
+    assert.match(await b.locator('#codeOutput').textContent(),/activate\("(GREEN|BLUE|RED|YELLOW)"\)/);
     assert.doesNotMatch(await b.locator('#codeOutput').textContent(),/;|\bfunction\b/);
     console.log('PASS analyst task card, private instructions, roles, Scratch/Python interface');
     assert.equal(await a.locator('#editor [data-move="0:1"]').isDisabled(),true,'Analyst cannot reorder cards');
-    await b.locator('#editor [data-move="0:1"]').click(); // BLUE GREEN RED
-    await b.locator('#editor [data-move="1:1"]').click(); // BLUE RED GREEN
-    const orderedSignal='activate("BLUE")\nactivate("RED")\nactivate("GREEN")';
+    await reorderRows(b,firstTarget);
+    const orderedSignal=firstTarget.map(c=>'activate("'+c+'")').join('\n');
     await Promise.all([a,b].map(page=>page.waitForFunction(expected=>document.querySelector('#codeOutput')?.textContent===expected,orderedSignal,{timeout:12000})));
     await a.locator('#approveBtn').click();
     await b.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
@@ -69,15 +120,14 @@ async function main(){
     await a.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('邏輯密碼鎖'));
     assert.match(await a.locator('#rolePill').textContent(),/拆彈操作員/);
     assert.match(await a.locator('#turnTitle').textContent(),/你是拆彈操作員/);
-    await b.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('邏輯密碼鎖') && document.querySelector('.mission-rule')?.textContent.includes('AND'));
-    assert.match(await b.locator('#missionPanel').textContent(),/AND/);
+    await b.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('邏輯密碼鎖') && document.querySelector('.mission-rule'));
+    const conditionGoal=parseCondition(await b.locator('.mission-rule').textContent());
     assert.equal(await a.locator('.mission-rule').count(),0);
-    await a.locator('#editor [data-field=color]').selectOption('RED');
-    await a.locator('#editor [data-field=threshold]').fill('50');
-    await a.locator('#editor [data-field=threshold]').press('Tab');
-    await a.locator('#editor [data-field=mode]').selectOption('AND');
-    await a.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('key_color == "RED" and power > 50'),null,{timeout:10000});
-    await b.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('key_color == "RED" and power > 50'),null,{timeout:10000});
+    await setField(a,'color',conditionGoal.color);
+    await setField(a,'threshold',conditionGoal.threshold);
+    await setField(a,'mode',conditionGoal.mode);
+    await waitBothCode('key_color == "'+conditionGoal.color+'" '+
+      conditionGoal.mode.toLowerCase()+' power > '+conditionGoal.threshold);
     await b.locator('#approveBtn').click();
     await a.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
     console.log('STAGE2 CODE',await a.locator('#codeOutput').textContent());
@@ -96,9 +146,11 @@ async function main(){
     await wait(1200);
     assert.equal(await teacher.locator('#timer').textContent(),frozen);
     await teacher.locator('[data-teacher=resume]').click();
-    await b.locator('#editor [data-field=limit]').fill('4');
-    await b.locator('#editor [data-field=limit]').press('Tab');
-    await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('range(0, 4, 1)'),null,{timeout:12000})));
+    const loopGoal=await a.locator('.mission-rule').textContent();
+    const loopCount=Number(loopGoal.match(/執行 (d+) 次/)?.[1]);
+    assert.ok(loopCount>=2&&loopCount<=10);
+    await setField(b,'limit',loopCount);
+    await waitBothCode('range(0, '+loopCount+', 1)');
     await a.locator('#approveBtn').click();
     await b.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
     await b.locator('#runBtn').click();
@@ -111,15 +163,21 @@ async function main(){
     // can replace an input before its pending change event has been emitted.
     const waitBoth=async(fragment)=>Promise.all([a,b].map(page=>page.waitForFunction(text=>
       document.querySelector('#codeOutput')?.textContent.includes(text),fragment,{timeout:15000})));
-    await a.locator('#editor [data-move="2:-1"]').click();
-    await waitBoth('sweep()\nverify()\nseal()');
-    await a.locator('#editor [data-move="1:-1"]').click();
-    await waitBoth('verify()\nsweep()\nseal()');
-    await a.locator('#editor [data-field=mode]').selectOption('AND');
-    await waitBoth('key_color == "RED" and power > 50');
-    await a.locator('#editor [data-field=limit]').fill('4');
-    await a.locator('#editor [data-field=limit]').press('Tab');
-    await waitBoth('for i in range(0, 4, 1)');
+    const debugGoal=await b.locator('.mission-rule').textContent();
+    const cmdName={驗證:'verify',清除:'sweep',封存:'seal',報告:'report'};
+    const debugOrder=debugGoal.split('正確順序：')[1].split('；')[0].split('→').map(x=>cmdName[x.trim()]);
+    assert.ok(debugOrder.every(Boolean));
+    await reorderRows(a,debugOrder,'debug');
+    const debugCondition=parseCondition(debugGoal);
+    const debugRepeat=Number(debugGoal.match(/迴圈需執行 (d+) 次/)?.[1]);
+    assert.ok(debugRepeat>=2);
+    await setField(a,'color',debugCondition.color);
+    await setField(a,'threshold',debugCondition.threshold);
+    await setField(a,'mode',debugCondition.mode);
+    await waitBoth('key_color == "'+debugCondition.color+'" '+
+      debugCondition.mode.toLowerCase()+' power > '+debugCondition.threshold);
+    await setField(a,'limit',debugRepeat);
+    await waitBoth('for i in range(0, '+debugRepeat+', 1)');
     await b.locator('#approveBtn').click();
     await a.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
     await a.locator('#runBtn').click();
