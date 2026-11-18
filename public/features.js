@@ -94,10 +94,16 @@
         '<div class="energy-slots">'+['A','B','C'].map(k=>
           '<div class="energy-slot"><strong>'+k+'</strong><b>'+escapeHtml(watch[k])+'</b></div>').join('')+'</div>';
     }else if(p.kind==='array'){
-      const chips=snapshot.step?.watch?.chips||p.initial;
-      container.innerHTML='<h3>▣ CHIP ARRAY　五色晶片陣列</h3><div class="chip-slots">'+
+      const after=Array.isArray(snapshot.result?.actualChips)?snapshot.result.actualChips:null;
+      const chips=snapshot.step?.active?.watch?.chips||after||p.initial;
+      const finished=Boolean(snapshot.result?.success&&after);
+      container.innerHTML='<h3>'+(finished?'✅ 交換完成 · 這是執行後的晶片順序':
+        '▣ 晶片原始順序 · 從左到右為 Scratch 第 1～5 格')+'</h3>'+
+        '<div class="chip-slots">'+
         chips.map((chip,i)=>'<div class="chip-slot"><i class="chip-dot" style="--chip-color:'+COLOR_HEX[chip]+'"></i>'+
-          '<small>Scratch '+(i+1)+'<br>Python ['+i+']</small><b>'+chip+'</b></div>').join('')+'</div>';
+          '<small>Scratch '+(i+1)+'<br>Python ['+i+']</small><b>'+chip+'</b></div>').join('')+'</div>'+
+        '<div class="program-caution">選 Scratch 格子 1～5；Python 索引需減 1。'+
+        (after?(finished?' 已與目標排列一致。':' 此為本次執行的交換結果，請和分析員對照。'):'')+'</div>';
     }else{
       container.innerHTML='<h3>❄ COOLING PROTOCOL　積木上限 6</h3>'+
         '<div class="program-caution">目前 '+p.blockCount+' 個積木'+(p.blockCount>6?'；已超出上限！':'；將函式定義與主程式呼叫分開。')+'</div>';
