@@ -17,11 +17,13 @@ const choose = (n,random)=>Math.floor(random()*n);
 function make(stage,advanced=false,random=Math.random,variant=0) {
   // 各題型有一組不同的目標排列；variant=0 保留教學入門題，
   // 之後同關新題／重試由房間出題池取下一組，不再反覆只換表面顏色。
+  // 清單交換是一個無方向性的操作：(2,4) 與 (4,2) 必須視為同一答案。
+  // 只取 C(5,2)=10 種唯一位置組合，避免把「反過來寫」當成新題。
   const pairs=[];
-  for(let i=1;i<=5;i++)for(let j=1;j<=5;j++)
-    if(i!==j)pairs.push([i,j]);
-  const baseIndex=pairs.findIndex(([i,j])=>i===(advanced?2:1)&&j===(advanced?4:5));
-  const uniquePairs=[pairs[baseIndex],...pairs.filter((_,i)=>i!==baseIndex)];
+  for(let i=1;i<=5;i++)for(let j=i+1;j<=5;j++)pairs.push([i,j]);
+  const canonical=advanced?[2,4]:[1,5];
+  const uniquePairs=[canonical,...pairs.filter(([i,j])=>i!==canonical[0]||j!==canonical[1])];
+  const chipName={RED:'紅',BLUE:'藍',GREEN:'綠',YELLOW:'黃',PURPLE:'紫'};
   const permutations=(arr)=>arr.length?arr.flatMap((v,i)=>
     permutations(arr.filter((_,j)=>i!==j)).map(t=>[v,...t])):[[]];
   const coolVariants=[COOL.slice(),...permutations(COOL).filter(p=>JSON.stringify(p)!==JSON.stringify(COOL))];
@@ -39,13 +41,17 @@ function make(stage,advanced=false,random=Math.random,variant=0) {
     };
   }
   if(stage==='array'){
-    const rotation=choose(5,random);
-    const initial=CHIPS.map((_,i)=>CHIPS[(i+rotation)%5]);
+    // 完整洗牌，而不是只旋轉色卡（原本只有 5 種起始排列）。
+    // Fisher-Yates 會產生最多 120 種不同初始清單，讓觀察位置真正有意義。
+    const initial=CHIPS.slice();
+    for(let i=initial.length-1;i>0;i--){
+      const j=choose(i+1,random);
+      [initial[i],initial[j]]=[initial[j],initial[i]];
+    }
     return {
       kind:'array', label:'五色晶片陣列', advanced, initial,
-      answer:variant===0?{first:advanced?2:1,second:advanced?4:5}:
-        {first:uniquePairs[variant%uniquePairs.length][0],
-          second:uniquePairs[variant%uniquePairs.length][1]},
+      answer:{first:uniquePairs[variant%uniquePairs.length][0],
+        second:uniquePairs[variant%uniquePairs.length][1]},
       blocks:{first:2,second:3}, scenarios:[]
     };
   }
@@ -99,8 +105,16 @@ function getPython(p){
       '\nC = ('+b.source+' * '+b.factor+' // '+b.divisor+') % '+b.modulo;
   }
   if(p.kind==='array'){
-    return 'chips = ['+p.initial.map(x=>'"'+x+'"').join(', ')+']\n'+
-      'chips['+(b.first-1)+'], chips['+(b.second-1)+'] = '+
+    const list='chips = ['+p.initial.map(x=>'"'+x+'"').join(', ')+']\n';
+    // Python 的 -1 是合法的倒數第一格，但 Scratch 第 0 格不存在。
+    // 為避免教錯語義，無效 Scratch 位置改顯示真正的 IndexError。
+    if(!validInt(b.first,1,5)||!validInt(b.second,1,5)){
+      const wrong=!validInt(b.first,1,5)?b.first:b.second;
+      return list+'raise IndexError("Scratch 第 '+wrong+' 格不存在；請用 1～5")';
+    }
+    if(b.first===b.second)
+      return list+'# 請選兩個不同位置；同一格無法交換';
+    return list+'chips['+(b.first-1)+'], chips['+(b.second-1)+'] = '+
       'chips['+(b.second-1)+'], chips['+(b.first-1)+']';
   }
   const body=b.body.map(x=>'    '+x.toLowerCase()+'()').join('\n');
@@ -114,8 +128,16 @@ function goal(p){
       '；// 代表整除、% 代表取餘數。';
   }
   if(p.kind==='array'){
-    const a=p.answer;
-    return '請交換第 '+a.first+' 與第 '+a.second+' 個晶片。Scratch 從 1 算起；Python 對應 chips['+(a.first-1)+'] 與 chips['+(a.second-1)+']。';
+    const {first,second}=p.answer;
+    const before=p.initial.map((x,i)=>(i+1)+'='+chipName[x]+'色').join('、');
+    const after=p.initial.slice();
+    [after[first-1],after[second-1]]=[after[second-1],after[first-1]];
+    const expected=after.map((x,i)=>(i+1)+'='+chipName[x]+'色').join('、');
+    return '任務：交換 Scratch 第 '+first+' 格（'+chipName[p.initial[first-1]]+'色）與第 '+second+
+      ' 格（'+chipName[p.initial[second-1]]+'色）晶片。\n'+
+      '交換前：'+before+'。\n交換後應為：'+expected+'。\n'+
+      'Scratch 清單位置從 1 起算；Python chips['+(first-1)+'] 與 chips['+(second-1)+
+      '] 從 0 起算。兩個位置先後順序不影響交換結果。';
   }
   return '請依序在 def cool_down(): 定義 '+p.target.map(x=>stepNames[x]).join(' → ')+
     '，主程式只呼叫 cool_down()；總積木不得超過 6 個。';
@@ -130,7 +152,10 @@ function targetPython(p){
 function briefing(p){
   const steps={
     variables:['先觀察 A、B、C 初始值，確認要讀哪個能源槽。','把來源、乘數、整除數、餘數門檻依序說給操作員。','確認最後寫入 C，再核准執行。'],
-    array:['先辨認 5 個晶片位置。','向隊友說明 Scratch 第一格等於 Python 的 chips[0]。','請隊友選兩個位置並交換，確認後核准。'],
+    array:['依照畫面上編號 1～5 的晶片，先讀出交換前的顏色與所在格。',
+      '題目中的第 N 格是 Scratch 清單位置；Python 對應 chips[N - 1]。',
+      '先告訴操作員要交換的兩格及顏色；兩格輸入順序可以對調。',
+      '核對交換後的五格順序與題目相同，再核准解除。'],
     function:['先看完正確的四步冷卻順序。','要求操作員在函式內排好四個積木。','主程式選「呼叫 cool_down()」，而非直接放四個步驟。']
   };
   return {
@@ -157,11 +182,15 @@ function inspect(p) {
       return {success:false,trace:[{title:'IndexError：你選了 Scratch 第 '+wrong+' 格，但晶片只有第 1～5 格（Python 索引 0～4）！',ok:false}],
         reason:'IndexError：你讀取了第 '+wrong+' 個位置，請改成 1～5；Python 索引是位置減 1。'};
     }
+    if(b.first===b.second)
+      return {success:false,trace:[{title:'請選兩個不同格子，不能將同一片晶片與自己交換。',ok:false}],
+        reason:'請選兩個不同的 Scratch 位置（1～5），相同位置不算交換。'};
     const chips=p.initial.slice();
     [chips[b.first-1],chips[b.second-1]]=[chips[b.second-1],chips[b.first-1]];
     const wanted=p.initial.slice();
     [wanted[p.answer.first-1],wanted[p.answer.second-1]]=[wanted[p.answer.second-1],wanted[p.answer.first-1]];
-    const ok=same(chips,wanted)&&same(b,p.answer);
+    // 以實際執行結果比對，而非把第一格和第二格當作有方向的答案。
+    const ok=same(chips,wanted)&&b.first!==b.second;
     return {success:ok,trace:[
       {title:'讀取 chips['+(b.first-1)+']',ok:true},
       {title:'讀取 chips['+(b.second-1)+'] 並交換',ok}
@@ -205,9 +234,10 @@ function steps(p){
       hint:x.ok?'執行完成':'請核對分析員提供的 '+['來源變數','乘數','整除數','餘數門檻'][i]}));
   }
   if(p.kind==='array'){
-    const b=p.blocks,valid=validInt(b.first,1,5)&&validInt(b.second,1,5);
-    if(!valid)return [{...result.trace[0],line:2,blockId:'array-first',watch:initialWatch(p),
-      hint:result.reason}];
+    const b=p.blocks,valid=validInt(b.first,1,5)&&validInt(b.second,1,5)&&b.first!==b.second;
+    if(!valid)return [{...result.trace[0],line:2,
+      blockId:(!validInt(b.first,1,5)||b.first===b.second)?'array-first':'array-second',
+      watch:initialWatch(p),hint:result.reason}];
     const chips=p.initial.slice();
     [chips[b.first-1],chips[b.second-1]]=[chips[b.second-1],chips[b.first-1]];
     return result.trace.map((x,i)=>({...x,line:2,blockId:i===0?'array-first':'array-second',
