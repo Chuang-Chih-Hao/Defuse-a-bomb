@@ -169,7 +169,7 @@ async function main(){
     assert.ok(debugOrder.every(Boolean));
     await reorderRows(a,debugOrder,'debug');
     const debugCondition=parseCondition(debugGoal);
-    const debugRepeat=Number(debugGoal.match(/迴圈需執行 (d+) 次/)?.[1]);
+    const debugRepeat=Number(debugGoal.match(/迴圈需執行 (\d+) 次/)?.[1]);
     assert.ok(debugRepeat>=2);
     await setField(a,'color',debugCondition.color);
     await setField(a,'threshold',debugCondition.threshold);
