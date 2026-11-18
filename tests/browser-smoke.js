@@ -303,14 +303,15 @@ async function main(){
     // 依次等待每次編輯傳送完畢，避免 Socket.IO 更新導致編輯表單重新渲染。
     const waitPythonBoth=async(code)=>Promise.all([a,b].map(page=>
       page.waitForFunction(part=>document.querySelector('#codeOutput')?.textContent.includes(part),code,{timeout:12000})));
-    await b.locator('#editor [data-field=source]').selectOption('A');
-    await waitPythonBoth('C = (A * 1 // 1) % 4');
-    await b.locator('#editor [data-field=factor]').fill('2');
-    await b.locator('#editor [data-field=factor]').press('Tab');
-    await waitPythonBoth('C = (A * 2 // 1) % 4');
-    await b.locator('#editor [data-field=modulo]').fill('5');
-    await b.locator('#editor [data-field=modulo]').press('Tab');
-    await waitPythonBoth('C = (A * 2 // 1) % 5');
+    const varTask=await a.locator('.mission-rule').textContent();
+    const vars=varTask.match(/C = \(([AB]) × (\d+) \/\/ (\d+)\) % (\d+)/);
+    assert.ok(vars,'Analyst should see full variable formula: '+varTask);
+    const [source,factor,divisor,modulo]=[vars[1],Number(vars[2]),Number(vars[3]),Number(vars[4])];
+    await setField(b,'source',source);
+    await setField(b,'factor',factor);
+    await setField(b,'divisor',divisor);
+    await setField(b,'modulo',modulo);
+    await waitPythonBoth('C = ('+source+' * '+factor+' // '+divisor+') % '+modulo);
     await b.locator('[data-block-id=vars-modulo]').hover();
     await b.waitForFunction(()=>document.querySelector('#codeOutput .code-line.logic-hover'));
     await a.locator('#approveBtn').click();
@@ -328,11 +329,16 @@ async function main(){
     await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('晶片陣列鎖'))));
     assert.match(await a.locator('#rolePill').textContent(),/拆彈操作員/);
     assert.match(await a.locator('#editor').textContent(),/Scratch/);
-    await a.locator('#editor [data-field=first]').fill('1');
-    await a.locator('#editor [data-field=first]').press('Tab');
-    await a.locator('#editor [data-field=second]').fill('5');
-    await a.locator('#editor [data-field=second]').press('Tab');
-    await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('chips[0], chips[4]'))));
+    const arrayTask=await b.locator('.mission-rule').textContent();
+    assert.match(arrayTask,/交換前：/);
+    assert.match(arrayTask,/交換後應為：/);
+    assert.match(arrayTask,/Scratch 清單位置從 1 起算/);
+    const pair=arrayTask.match(/任務：交換 Scratch 第 (\d+) 格[^\n]+與第 (\d+) 格/);
+    assert.ok(pair,'Cannot find array swap coordinates: '+arrayTask);
+    // Intentionally reverse the pair. Transposition must grade equivalently.
+    await setField(a,'first',Number(pair[2]));
+    await setField(a,'second',Number(pair[1]));
+    await waitBothCode('chips['+(Number(pair[2])-1)+'], chips['+(Number(pair[1])-1)+']');
     await b.locator('#approveBtn').click();
     await a.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
     await a.locator('#runBtn').click();
@@ -343,12 +349,16 @@ async function main(){
     await teacher.locator('[data-teacher=next]').click();
     await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#stageHeading')?.textContent.includes('緊急冷卻協議'))));
     assert.match(await b.locator('#blockMeter').textContent(),/8／6/);
-    await b.locator('#editor [data-fmove="0:1"]').click();
-    await b.waitForFunction(()=>document.querySelector('#editor [data-block-id="body-0"]')?.textContent.includes('清除快取'));
-    await b.locator('#editor [data-fmove="1:1"]').click();
-    await b.waitForFunction(()=>document.querySelector('#editor [data-block-id="body-1"]')?.textContent.includes('開啟散熱'));
-    await b.locator('#editor [data-field=mainMode]').selectOption('call');
-    await Promise.all([a,b].map(page=>page.waitForFunction(()=>document.querySelector('#codeOutput')?.textContent.includes('def cool_down():\n    purge()\n    vent()\n    sync()\n    lock()\n\ncool_down()'))));
+    const fnGoal=await a.locator('.mission-rule').textContent();
+    const fnName={'清除快取':'purge','開啟散熱':'vent','同步能源':'sync','鎖定模組':'lock'};
+    const fnOrder=fnGoal.split('定義 ')[1].split('，主程式')[0].split('→').map(x=>fnName[x.trim()]);
+    assert.equal(fnOrder.length,4);
+    assert.ok(fnOrder.every(Boolean),'Function sequence not readable: '+fnGoal);
+    await reorderRows(b,fnOrder,'function');
+    await setField(b,'mainMode','call');
+    const fnCode='def cool_down():\n'+fnOrder.map(x=>'    '+x+'()').join('\n')+'\n\ncool_down()';
+    await Promise.all([a,b].map(page=>page.waitForFunction(value=>
+      document.querySelector('#codeOutput')?.textContent.includes(value),fnCode,{timeout:15000})));
     assert.match(await b.locator('#blockMeter').textContent(),/5／6/);
     await a.locator('#approveBtn').click();
     await b.waitForFunction(()=>!document.querySelector('#runBtn')?.disabled);
@@ -368,7 +378,7 @@ async function main(){
     await Promise.all([teacher,a,b].map(page=>page.waitForFunction(()=>
       document.querySelector('#stageHeading')?.textContent.includes('能量分配站'),null,{timeout:15000})));
     await a.waitForFunction(()=>document.querySelector('.mission-target')?.textContent.includes('C ='),null,{timeout:15000});
-    assert.match(await a.locator('.mission-target').textContent(),/C = \(B \* 3 \/\/ 2\) % 5/);
+    assert.match(await a.locator('.mission-target').textContent(),/C = \([AB] \* [1-5] \/\/ [1-5]\) % [2-9]/);
     assert.equal(await b.locator('.mission-target').count(),0);
     console.log('PASS advanced analyst code-only rule and private target Python');
 
