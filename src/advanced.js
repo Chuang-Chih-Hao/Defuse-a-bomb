@@ -33,7 +33,7 @@ function make(stage,advanced=false,random=Math.random,variant=0) {
         {source:advanced?'B':'A',factor:advanced?3:2,divisor:advanced?2:1,modulo:5}:
         {source:variant%2?(advanced?'A':'B'):(advanced?'B':'A'),
           factor:1+(variant%5),divisor:1+(Math.floor(variant/5)%3),
-          modulo:3+(variant%7)},
+          modulo:variant===16&&!advanced?6:3+(variant%7)},
       blocks:{source:advanced?'A':'B',factor:1,divisor:1,modulo:4},
       scenarios:[]
     };
