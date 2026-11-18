@@ -179,11 +179,11 @@ function inspect(p) {
     const valid=validInt(b.first,1,5)&&validInt(b.second,1,5);
     if(!valid){
       const wrong=validInt(b.first,1,5)?b.second:b.first;
-      return {success:false,trace:[{title:'IndexError：你選了 Scratch 第 '+wrong+' 格，但晶片只有第 1～5 格（Python 索引 0～4）！',ok:false}],
+      return {success:false,actualChips:p.initial.slice(),trace:[{title:'IndexError：你選了 Scratch 第 '+wrong+' 格，但晶片只有第 1～5 格（Python 索引 0～4）！',ok:false}],
         reason:'IndexError：你讀取了第 '+wrong+' 個位置，請改成 1～5；Python 索引是位置減 1。'};
     }
     if(b.first===b.second)
-      return {success:false,trace:[{title:'請選兩個不同格子，不能將同一片晶片與自己交換。',ok:false}],
+      return {success:false,actualChips:p.initial.slice(),trace:[{title:'請選兩個不同格子，不能將同一片晶片與自己交換。',ok:false}],
         reason:'請選兩個不同的 Scratch 位置（1～5），相同位置不算交換。'};
     const chips=p.initial.slice();
     [chips[b.first-1],chips[b.second-1]]=[chips[b.second-1],chips[b.first-1]];
@@ -191,10 +191,10 @@ function inspect(p) {
     [wanted[p.answer.first-1],wanted[p.answer.second-1]]=[wanted[p.answer.second-1],wanted[p.answer.first-1]];
     // 以實際執行結果比對，而非把第一格和第二格當作有方向的答案。
     const ok=same(chips,wanted)&&b.first!==b.second;
-    return {success:ok,trace:[
+    return {success:ok,actualChips:chips,trace:[
       {title:'讀取 chips['+(b.first-1)+']',ok:true},
       {title:'讀取 chips['+(b.second-1)+'] 並交換',ok}
-    ],reason:ok?'已成功交換指定晶片':'交換後的晶片位置與任務不符，請核對 Scratch 與 Python 索引。'};
+    ],reason:ok?'交換成功！五色晶片順序正確。':'交換後的順序不符；請確認 Scratch 第 1～5 格與 Python 索引 0～4 的差異。'};
   }
   const body=same(b.body,p.target);
   const called=b.mainMode==='call';
