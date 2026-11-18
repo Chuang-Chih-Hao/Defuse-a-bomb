@@ -134,7 +134,7 @@ test('三人 Socket.IO：七關角色隔離、單步 Watch、失誤與教師切�
   assert.equal((await send(teacher,'teacher:action',{action:'next'})).ok,true);
   assert.equal(room.puzzle.kind,'function');
   assert.equal((await send(a,'analysis:approve')).ok,true);
-  assert.equal((await send(b,'puzzle:edit',{blocks:{body:['PURGE','VENT','SYNC','LOCK'],mainMode:'call'}})).ok,true);
+  assert.equal((await send(b,'puzzle:edit',{blocks:{body:room.puzzle.target.slice(),mainMode:'call'}})).ok,true);
   assert.equal((await send(a,'analysis:approve')).ok,true);
   assert.equal((await send(b,'puzzle:run')).success,true);
   assert.equal(room.status,'won');
