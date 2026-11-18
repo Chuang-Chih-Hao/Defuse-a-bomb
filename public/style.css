@@ -563,3 +563,9 @@ pre{font:12px/1.7 'Consolas','Courier New',monospace;color:#9ce7ed;background:#0
   .editor-buttons #approveBtn,.editor-buttons #runBtn{font-size:14px}
   .python-pane #codeOutput{display:block;min-height:105px;width:100%;overflow-x:auto}
 }
+
+/* v1.4.1 — Stage 6: clearly separated 1-based Scratch positions and 0-based Python indices. */
+.mission-rule{white-space:pre-line}
+.index-legend{line-height:1.75;font-size:13px}
+#stageVisual .chip-slots{overflow-x:auto}
+#stageVisual .chip-slot small{font-weight:700}

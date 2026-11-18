@@ -23,12 +23,13 @@
       '</div><p class="scratch-note">例如：7 // 2 = 3；7 % 2 = 1。先算乘法、整除，再取餘數。</p>';
     }
     if(p.kind==='array'){
-      return '<div class="index-legend">🧮 Scratch 清單位置從 <b>1</b> 開始；Python chips 索引從 <b>0</b> 開始。'+
-        'Scratch 第 1 格 → chips[0]；Scratch 第 5 格 → chips[4]。</div>'+
-        '<div class="scratch-hat">🚩 當按下執行：交換兩個晶片</div><div class="scratch-stack">'+
-        '<div class="block scratch-command" data-block-id="array-first">① 第一個位置（Scratch）　'+integer('first',b.first,0,6)+'</div>'+
-        '<div class="block scratch-command" data-block-id="array-second">② 第二個位置（Scratch）　'+integer('second',b.second,0,6)+'</div></div>'+
-        '<p class="scratch-note">正常索引為 1～5。嘗試第 6 格可觀察 IndexError 提示。</p>';
+      return '<div class="index-legend">🎯 請先看五色晶片的位置，問分析員「交換哪兩格」！<br>'+
+        'Scratch 清單使用 <b>第 1～5 格</b>；Python 是 <b>chips[0]～chips[4]</b>。'+
+        '例：Scratch 第 2 格 = Python chips[1]。</div>'+
+        '<div class="scratch-hat">🚩 交換兩個不同位置的晶片</div><div class="scratch-stack">'+
+        '<div class="block scratch-command" data-block-id="array-first">① 要交換的位置 A（Scratch 第幾格）　'+integer('first',b.first,0,6)+'</div>'+
+        '<div class="block scratch-command" data-block-id="array-second">② 要交換的位置 B（Scratch 第幾格）　'+integer('second',b.second,0,6)+'</div></div>'+
+        '<p class="scratch-note">A 和 B 對調填寫也會通過。0 或 6 是無效位置，會顯示 IndexError。</p>';
     }
     if(p.kind==='function'){
       return '<div class="function-editor-note">定義一個函式，主程式只要放一個 cool_down() 呼叫積木；上限 6 個。</div>'+
