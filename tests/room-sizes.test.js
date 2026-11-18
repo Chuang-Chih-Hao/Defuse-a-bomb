@@ -37,7 +37,7 @@ test('教師＋1 位學生：教師能輪流補位且保留管理權限',async()
   assert.equal(ts.isTeacher,true);assert.equal(ts.teacherActor.role,'analyst');
   assert.equal(as.puzzle.objective,undefined,'操作員不能取得機密答案');
   assert.equal((await send(t,'puzzle:edit',{blocks:['BLUE','RED','GREEN']})).ok,false);
-  assert.equal((await send(a,'puzzle:edit',{blocks:['BLUE','RED','GREEN']})).ok,true);
+  assert.equal((await send(a,'puzzle:edit',{blocks:room.puzzle.target.slice()})).ok,true);
   assert.equal((await send(t,'analysis:approve')).ok,true);
   assert.equal((await send(a,'puzzle:run')).success,true);
   assert.equal((await send(t,'teacher:action',{action:'next'})).ok,true);

@@ -30,7 +30,7 @@ test('老師＋一名學生即可開始；老師兼分析員並能核准、傳�
   assert.deepEqual(room.turnRoster,[0]);
   assert.equal((await emit(student,'analysis:approve')).ok,false);
   assert.equal((await emit(teacher,'puzzle:edit',{blocks:['BLUE','RED','GREEN']})).ok,false);
-  assert.equal((await emit(student,'puzzle:edit',{blocks:['BLUE','RED','GREEN']})).ok,true);
+  assert.equal((await emit(student,'puzzle:edit',{blocks:room.puzzle.target.slice()})).ok,true);
   assert.equal((await emit(teacher,'analysis:message',{message:'順序是藍紅綠'})).ok,true);
   assert.equal((await emit(teacher,'analysis:approve')).ok,true);
   assert.equal((await emit(student,'puzzle:run')).success,true);
@@ -57,7 +57,7 @@ test('老師房間可容納三位學生；中途加入不插隊；下一關三�
   assert.deepEqual(room.turnRoster,[0],'一關進行中角色不能突然改變');
   assert.equal((await emit(b,'analysis:approve')).ok,false,'中途加入的乙只能觀察');
   assert.equal((await emit(b,'puzzle:edit',{blocks:['BLUE','RED','GREEN']})).ok,false);
-  assert.equal((await emit(a,'puzzle:edit',{blocks:['BLUE','RED','GREEN']})).ok,true);
+  assert.equal((await emit(a,'puzzle:edit',{blocks:room.puzzle.target.slice()})).ok,true);
   assert.equal((await emit(t,'analysis:approve')).ok,true);
   assert.equal((await emit(a,'puzzle:run')).success,true);
 
@@ -75,7 +75,7 @@ test('老師房間可容納三位學生；中途加入不插隊；下一關三�
   assert.deepEqual(room.turnRoster,[0,1,2]);
   assert.equal((await emit(b,'analysis:approve')).ok,false,'上一關分析員現在為觀察員');
   assert.equal((await emit(c,'analysis:approve')).ok,true);
-  assert.equal((await emit(a,'puzzle:edit',{blocks:{start:0,limit:4,step:1}})).ok,true);
+  assert.equal((await emit(a,'puzzle:edit',{blocks:{start:0,limit:room.puzzle.target,step:1}})).ok,true);
   assert.equal((await emit(c,'analysis:approve')).ok,true);
   assert.equal((await emit(a,'puzzle:run')).success,true);
   assert.equal((await emit(t,'teacher:action',{action:'next'})).ok,true);

@@ -1,7 +1,7 @@
 const {test,after} = require('node:test');
 const assert=require('node:assert/strict');
 const {io:Client}=require('socket.io-client');
-const {createGameServer}=require('../src/server');
+const {createGameServer,rooms}=require('../src/server');
 const game=createGameServer();
 const clients=[];
 let address;
@@ -26,7 +26,7 @@ test('teacher authentication, room membership, role isolation, full stage lifecy
   assert.equal((await send(a,'puzzle:edit',{blocks:['BLUE','RED','GREEN']})).ok,false);
   assert.equal((await send(b,'puzzle:run')).ok,false);
   assert.equal((await send(a,'analysis:approve')).ok,true);
-  assert.equal((await send(b,'puzzle:edit',{blocks:['BLUE','RED','GREEN']})).ok,true);
+  assert.equal((await send(b,'puzzle:edit',{blocks:rooms.get(code).puzzle.target.slice()})).ok,true);
   assert.equal((await send(b,'puzzle:run')).ok,false);
   assert.equal((await send(a,'analysis:approve')).ok,true);
   r=await send(b,'puzzle:run');assert.equal(r.success,true);
