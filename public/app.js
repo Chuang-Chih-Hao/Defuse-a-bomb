@@ -13,9 +13,12 @@ const STAGE_HELP={
   condition:'調整 if 條件中的顏色、比較值與 AND / OR。<br>分析員可以看到測試結果與正確規則；操作員只能編輯，必須合作完成。',
   loop:'調整 for 迴圈的開始值、結束值及每次增加的數量。<br>思考哪些 i 會符合 i &lt; limit，讓模組恰好執行指定次數。',
   debug:'系統核心同時存在順序、if 判斷與 for 迴圈三類 Bug。<br>分析員負責檢查規格，操作員修改三處錯誤，再觀察追蹤結果。',
+  variables:'先向分析員詢問來源 A／B、乘數、整除數與取餘數，再設定 C。',
+  array:'選擇兩個晶片的位置交換。Scratch 從 1 算起，Python 索引從 0 算起。',
+  function:'把四步冷卻指令排好，主程式只放一個 cool_down() 呼叫。',
   lab:'設計者自訂數位邏輯規則，另一人負責破解。<br>內建三種任務：自訂執行順序、改造布林條件、設計迴圈陷阱。'
 };
-const DEFUSE_UI_VERSION='1.3.0';
+const DEFUSE_UI_VERSION='1.4.0';
 const socket=io({reconnection:true,reconnectionDelay:500,reconnectionDelayMax:4000});
 let saved=null;
 try{saved=JSON.parse(localStorage.getItem('defuse-identity')||'null');}catch{}
@@ -305,7 +308,8 @@ function renderMission(){
     (self?.role==='student'?' / 玩家 '+['A','B','C'][self.slot]:
       snapshot.isTeacher&&snapshot.role!=='teacher'?' / 教師兼任':'');
   $('rolePill').className='pill role-pill '+snapshot.role;
-  $('stageCaption').textContent=snapshot.mode==='lab'?'CREATOR LAB / 自訂挑戰':'MISSION '+String(snapshot.stageIndex+1).padStart(2,'0')+' / 04';
+  $('stageCaption').textContent=snapshot.mode==='lab'?'CREATOR LAB / 自訂挑戰':
+    '第 '+(snapshot.stageIndex+1)+' 關 · '+(snapshot.questionNumber>1?'本題型第 '+snapshot.questionNumber+' 題':'首次挑戰');
   $('stageHeading').textContent=snapshot.title;
   $('score').textContent=String(snapshot.teamScore).padStart(4,'0');
   $('difficultyPill').textContent=snapshot.difficulty==='advanced'?'進階模式':'基礎模式';
@@ -345,7 +349,9 @@ function renderMission(){
       '<div class="mission-card-title">🎯 '+escapeHtml(br.title)+'</div>'+
       '<p class="mission-card-explain">請先看懂以下「正確規則」，並將操作方法說給另一位同學。</p>'+
       '<div class="mission-rule"><span class="mission-rule-label">本關正確規則 · 請讀給操作員</span>'+escapeHtml(br.rule)+'</div>'+
-      '<div class="mission-actions"><b>📢 現在要怎麼做？</b><ol>'+br.steps.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ol></div>'+cases;
+      '<details class="task-hints"><summary>需要提示？展開操作步驟與測試</summary>'+
+      '<div class="mission-actions"><b>操作步驟</b><ol>'+br.steps.map(x=>'<li>'+escapeHtml(x)+'</li>').join('')+'</ol></div>'+
+      cases+'</details>';
   }else if(snapshot.role==='observer'){
     $('taskInstructions').innerHTML='<span class="mission-card-badge">👀 情報支援員</span>'+
       '<div class="mission-card-title">觀察隊友的程式與執行結果</div>'+
@@ -354,7 +360,8 @@ function renderMission(){
   }else{
     $('taskInstructions').innerHTML='<span class="mission-card-badge">🧩 操作員專用</span>'+
       '<div class="mission-card-title">依分析員提供的規則完成程式</div>'+
-      '<div class="mission-hidden"><h3>正確答案在分析員那邊！</h3>請先向隊友詢問目標條件，再調整右側 Scratch 程式積木。<strong>改完後請等隊友按「③ 核准」，再由你按「④ 執行」。</strong></div>'+
+      '<div class="mission-hidden">先向分析員詢問這題的規則，使用右側積木完成答案。'+
+      '<strong>分析員核准後，你就能按「解除核心」。</strong></div>'+
       '<p class="mission-card-explain">'+STAGE_HELP[stage]+'</p>';
   }
   renderTurn();
@@ -381,7 +388,7 @@ function renderTeacher(){
     labNext:ready&&snapshot.mode==='lab',reset:true
   };
   document.querySelectorAll('[data-teacher]').forEach(btn=>btn.disabled=!actionAvailable[btn.dataset.teacher]);
-  $('teacherSummary').innerHTML='<strong>課堂即時監控：</strong> 學生 '+snapshot.members.filter(m=>m.online).length+'/3 在線 · 已加入 '+snapshot.members.length+' 人 · '+'本關 '+snapshot.attempts+' 次執行 · 累積 '+snapshot.history.length+
+  $('teacherSummary').innerHTML='<strong>課堂即時監控：</strong> 本題型第 '+(snapshot.questionNumber||1)+' 題 · 學生 '+snapshot.members.filter(m=>m.online).length+'/3 在線 · 已加入 '+snapshot.members.length+' 人 · '+'本關 '+snapshot.attempts+' 次執行 · 累積 '+snapshot.history.length+
     ' 次結算 · '+(snapshot.status==='active'?'關卡倒數中':'倒數已停止')+
     ' · 請在 40 分鐘課程與 10 分鐘休息時自行使用「暫停」。';
 }
@@ -485,6 +492,8 @@ function animateResult(result){
 }
 function render(){
   if(!snapshot||!self)return;
+  $('gameScreen').dataset.status=snapshot.status;
+  $('gameScreen').dataset.teacher=String(snapshot.isTeacher);
   renderMission();renderAgents();renderComms();renderEditor();renderTeacher();renderHistory();renderLab();
   updateClock();
   if(snapshot.result?.serial!==undefined && snapshot.result?.serial!==lastSerial)animateResult(snapshot.result);

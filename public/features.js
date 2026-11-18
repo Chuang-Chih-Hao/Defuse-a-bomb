@@ -163,7 +163,7 @@
     originalMission();
     if(!snapshot?.puzzle)return;
     $('stageCaption').textContent=snapshot.mode==='lab'?'CREATOR LAB / 自訂挑戰':
-      'MISSION '+String(snapshot.stageIndex+1).padStart(2,'0')+' / 07';
+      '第 '+(snapshot.stageIndex+1)+' 關 / 07 · 本題型第 '+(snapshot.questionNumber||1)+' 題';
     const p=snapshot.puzzle;
     if(snapshot.difficulty==='advanced'&&(snapshot.role==='analyst'||snapshot.role==='teacher')&&
        p.briefing?.targetPython){
@@ -172,8 +172,9 @@
         '<div class="mission-card-title">🐍 請讀懂目標 Python，指揮隊友排積木</div>'+
         '<p class="mission-card-explain">本模式不提供白話答案；分析員自行推理後，用口頭或作戰通訊說明。</p>'+
         '<pre class="mission-rule mission-target">'+escapeHtml(p.briefing.targetPython)+'</pre>'+
-        '<div class="mission-actions"><b>📢 建議流程</b><ol>'+p.briefing.steps.map(x=>
-          '<li>'+escapeHtml(x)+'</li>').join('')+'</ol></div>';
+        '<details class="task-hints"><summary>需要提示？展開解題步驟</summary>'+
+        '<div class="mission-actions"><b>解題步驟</b><ol>'+p.briefing.steps.map(x=>
+          '<li>'+escapeHtml(x)+'</li>').join('')+'</ol></div></details>';
     }
   };
   renderTeacher=function(){
@@ -202,7 +203,10 @@
       activeId=null;error=false;highlight();
     }
   };
-  $('stepBtn').addEventListener('click',()=>send('puzzle:step'));
+  $('stepBtn').addEventListener('click',()=>{
+    $('debugDrawer').open=true;
+    send('puzzle:step');
+  });
   $('editor').addEventListener('click',e=>{
     const control=e.target.closest('[data-fmove]');
     if(!control||!canEdit()||snapshot?.puzzle?.kind!=='function')return;

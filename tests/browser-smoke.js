@@ -220,7 +220,7 @@ async function main(){
       assert.ok(mobile.width>=width*.75,'Python code panel is unexpectedly narrow');
       assert.ok(mobile.right<=mobile.viewportWidth+2,'Python code clipped off screen');
       assert.ok(mobile.teamRight<=mobile.viewportWidth+2,'Team roster clipped off screen');
-      assert.ok(mobile.versionScript.includes('v=1.3.0'),'Browser is not using versioned JavaScript');
+      assert.ok(mobile.versionScript.includes('v=1.4.0'),'Browser is not using versioned JavaScript');
       await a.locator('#codeOutput').scrollIntoViewIfNeeded();
       await a.screenshot({path:(process.env.TARGET_URL?'render-':'')+'phone-'+width+'.png',fullPage:true});
       console.log('PASS mobile Python visibility and roster at '+width+'px: code height '+Math.round(mobile.height)+'px');
@@ -313,6 +313,31 @@ async function main(){
     assert.match(await a.locator('.mission-target').textContent(),/C = \(B \* 3 \/\/ 2\) % 5/);
     assert.equal(await b.locator('.mission-target').count(),0);
     console.log('PASS advanced analyst code-only rule and private target Python');
+
+    // 再換同關新題：確認不只是背景改色，真正的 Python 目標也會不同。
+    const priorTarget=await a.locator('.mission-target').textContent();
+    await teacher.locator('[data-teacher=retry]').click();
+    await a.waitForFunction(old=>document.querySelector('.mission-target')?.textContent!==old &&
+      document.querySelector('#stageCaption')?.textContent.includes('第 2 題'),priorTarget,{timeout:15000});
+    const nextTarget=await a.locator('.mission-target').textContent();
+    assert.notEqual(nextTarget,priorTarget);
+    assert.equal(await b.locator('.mission-target').count(),0,'解題操作員仍不能收到新題目答案');
+    const focus=await b.evaluate(()=>{
+      const mission=document.querySelector('#missionPanel').getBoundingClientRect();
+      const editor=document.querySelector('#editor').getBoundingClientRect();
+      const core=document.querySelector('#core').getBoundingClientRect();
+      const drawer=document.querySelector('#teamDrawer');
+      const all=document.querySelectorAll('#missionTrack span');
+      return {mission:mission.width,editor:editor.width,core:core.width,
+        teamCollapsed:!drawer.open,visibleStages:[...all].filter(x=>getComputedStyle(x).display!=='none').length,
+        pythonVisible:getComputedStyle(document.querySelector('#codeOutput')).display!=='none'};
+    });
+    assert.ok(focus.mission>=200&&focus.editor>=240);
+    assert.ok(focus.core<=140,'裝置動畫應縮小，保留主要畫面給題目及積木');
+    assert.equal(focus.teamCollapsed,true);
+    assert.equal(focus.visibleStages,1);
+    assert.equal(focus.pythonVisible,true);
+    console.log('PASS randomized repeat challenge and compact question-answer-defuse UI');
 
     await teacher.screenshot({path:process.env.TARGET_URL?'render-teacher-screenshot.png':'teacher-screenshot.png',fullPage:true});
     assert.deepEqual(problems,[],'No browser runtime exceptions');

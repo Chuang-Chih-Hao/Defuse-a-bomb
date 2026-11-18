@@ -18,9 +18,22 @@ const isColor = x => COLORS.includes(x);
 const isStep = x => STEPS.includes(x);
 const safeMode = x => x === 'AND' || x === 'OR';
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// 七種關卡的題型庫：第一輪保持穩定的入門範例，之後依房間出題歷史
+// 使用未出現的排列／目標。不同題型不共用答案，且不執行任意學生程式。
+const permutations=(arr,size=arr.length)=>
+  size===0?[[]]:arr.flatMap((v,i)=>
+    permutations(arr.filter((_,j)=>j!==i),size-1).map(t=>[v,...t]));
+function variants(stage){
+  return stage==='array'?20:stage==='loop'?9:24;
+}
+function variantOrder(stage,advanced,n,reference){
+  const all=permutations(stage==='debug'?STEPS:COLORS,
+    stage==='debug'?(advanced?4:3):advanced?4:3);
+  return [reference,...all.filter(p=>!equal(p,reference))][n%all.length].slice();
+}
 
-function makePuzzleRaw(stage, advanced = false, spec = null) {
-  if(extra.EXTENDED.includes(stage))return extra.make(stage,advanced);
+function makePuzzleRaw(stage, advanced = false, spec = null, variant = 0) {
+  if(extra.EXTENDED.includes(stage))return extra.make(stage,advanced,Math.random,variant);
   if (stage === 'lab') {
     if (!spec) throw Error('missing lab spec');
     if (spec.kind === 'sequence') {
@@ -40,30 +53,48 @@ function makePuzzleRaw(stage, advanced = false, spec = null) {
     return { kind: 'loop', target: spec.target, blocks: { start: 0, limit: 3, step: 1 }, scenarios: [], label: '自訂能源陣列' };
   }
   if (stage === 'sequence') {
-    const target = advanced ? ['BLUE', 'RED', 'GREEN', 'YELLOW'] : ['BLUE', 'RED', 'GREEN'];
-    return { kind: stage, target, blocks: advanced ? ['GREEN', 'YELLOW', 'RED', 'BLUE'] : ['GREEN', 'BLUE', 'RED'], scenarios: [], label: '安全訊號次序' };
+    const canonical=advanced?['BLUE','RED','GREEN','YELLOW']:['BLUE','RED','GREEN'];
+    const target=variantOrder('sequence',advanced,variant,canonical);
+    const blocks=variant===0?(advanced?['GREEN','YELLOW','RED','BLUE']:['GREEN','BLUE','RED']):
+      target.slice().reverse();
+    return {kind:stage,target,blocks,scenarios:[],label:'安全訊號次序'};
   }
   if (stage === 'condition') {
-    const answer = { color: 'RED', threshold: 50, mode: 'AND', secondColor: 'BLUE', secondThreshold: 70, useSecond: advanced };
-    const cases = [
-      { color: 'RED', power: 90 }, { color: 'RED', power: 40 },
-      { color: 'BLUE', power: 85 }, { color: 'BLUE', power: 30 },
-      { color: 'RED', power: 55 }, { color: 'GREEN', power: 95 },
-      { color: 'BLUE', power: 65 }
+    const color=variant===0?'RED':COLORS[variant%4];
+    const threshold=variant===0?50:30+Math.floor(variant/4)*10;
+    const mode=variant===0?'AND':variant%2===0?'AND':'OR';
+    const secondColor=variant===0?'BLUE':COLORS[(COLORS.indexOf(color)+1+variant%3)%4];
+    const secondThreshold=variant===0?70:35+(variant%6)*10;
+    const answer={color,threshold,mode,secondColor,secondThreshold,useSecond:advanced};
+    const other=COLORS.find(c=>c!==answer.color&&c!==answer.secondColor)||'GREEN';
+    const cases=[
+      {color:answer.color,power:Math.min(100,answer.threshold+20)},
+      {color:answer.color,power:Math.max(0,answer.threshold-10)},
+      {color:answer.secondColor,power:Math.min(100,answer.secondThreshold+10)},
+      {color:answer.secondColor,power:Math.max(0,answer.secondThreshold-10)},
+      {color:other,power:90},
+      {color:answer.color,power:answer.threshold},
+      {color:other,power:20}
     ];
     return { kind: stage, answer, blocks: { color: 'BLUE', threshold: 60, mode: 'OR', secondColor: 'GREEN', secondThreshold: 60, useSecond: advanced }, scenarios: cases.map(x => ({ ...x, expected: truth(x, answer) })), label: '權限驗證演算' };
   }
   if (stage === 'loop') {
-    return { kind: stage, target: advanced ? 6 : 4, blocks: { start: 0, limit: 3, step: 1 }, scenarios: [], label: '虛擬模組清除' };
+    const targets=advanced?[6,2,3,4,5,7,8,9,10]:[4,2,3,5,6,7,8,9,10];
+    return {kind:stage,target:targets[variant%targets.length],
+      blocks:{start:0,limit:3,step:1},scenarios:[],label:'虛擬模組清除'};
   }
   if (stage === 'debug') {
+    const canonical=advanced?['VERIFY','SWEEP','SEAL','REPORT']:['VERIFY','SWEEP','SEAL'];
+    const target=variantOrder('debug',advanced,variant,canonical);
     return {
-      kind: stage,
-      target: advanced ? ['VERIFY', 'SWEEP', 'SEAL', 'REPORT'] : ['VERIFY', 'SWEEP', 'SEAL'],
-      expectedMode: 'AND',
-      expectedLimit: advanced ? 6 : 4,
+      kind:stage,
+      target,
+      expectedMode:variant===0?'AND':variant%2===0?'AND':'OR',
+      expectedColor:variant===0?'RED':COLORS[variant%4],
+      expectedThreshold:variant===0?50:30+(variant%6)*10,
+      expectedLimit:variant===0?(advanced?6:4):[3,5,7,2,6,8,9,4][variant%8],
       blocks: {
-        order: advanced ? ['SEAL', 'REPORT', 'SWEEP', 'VERIFY'] : ['SWEEP', 'SEAL', 'VERIFY'],
+        order: variant===0?(advanced?['SEAL','REPORT','SWEEP','VERIFY']:['SWEEP','SEAL','VERIFY']):target.slice().reverse(),
         mode: 'OR', color: 'RED', threshold: 50, start: 0, limit: 3, step: 1
       },
       scenarios: [{ color: 'RED', power: 80 }, { color: 'RED', power: 35 }, { color: 'BLUE', power: 80 }],
@@ -73,10 +104,12 @@ function makePuzzleRaw(stage, advanced = false, spec = null) {
   throw Error('invalid stage');
 }
 
-function makePuzzle(stage,advanced=false,spec=null){
-  const p=makePuzzleRaw(stage,advanced,spec);
+function makePuzzle(stage,advanced=false,spec=null,variant=0){
+  if(!Number.isInteger(variant)||variant<0)throw Error('不合法的題目版本');
+  const p=makePuzzleRaw(stage,advanced,spec,variant);
   // 難度僅在伺服器端標記；不讓學生修改標準答案。
   p.advanced=Boolean(advanced);
+  p.variant=variant;
   return p;
 }
 function truth(input, b) {
@@ -153,7 +186,8 @@ function evaluate(p) {
     return { success, trace, reason: '執行 ' + count + ' 次；所需次數由分析員掌握' };
   }
   const seq = equal(b.order, p.target);
-  const flag = b.mode === p.expectedMode && b.color === 'RED' && b.threshold === 50;
+  const flag=b.mode===p.expectedMode&&b.color===(p.expectedColor||'RED')&&
+    b.threshold===(p.expectedThreshold??50);
   const count = countLoop(b);
   const loop = count === p.expectedLimit;
   const trace = [
@@ -212,8 +246,10 @@ function objective(p) {
       '；或額外符合「顏色為 ' + colorName[p.answer.secondColor] + ' 且能源 > ' + p.answer.secondThreshold + '」' : '');
   }
   if (p.kind === 'loop') return '讓虛擬模組剛好執行 ' + p.target + ' 次';
-  return '正確順序：' + p.target.map(x=>stepName[x]).join(' → ') +
-    '；條件為顏色 RED 且能源 > 50（AND）；迴圈需執行 ' + p.expectedLimit + ' 次';
+  return '正確順序：'+p.target.map(x=>stepName[x]).join(' → ')+
+    '；條件為'+colorName[p.expectedColor||'RED']+
+    (p.expectedMode==='AND'?' 且（AND）':' 或（OR）')+
+    '能源 > '+(p.expectedThreshold??50)+'；迴圈需執行 '+p.expectedLimit+' 次';
 }
 function briefing(p) {
   if(extra.EXTENDED.includes(p.kind))return extra.briefing(p);
@@ -240,7 +276,9 @@ function briefing(p) {
   return {
     title:'修復三個程式錯誤',
     rule:objective(p),
-    steps:['先說出正確的訊號執行順序。','請操作員修正 if 條件：「RED 且能源 > 50」。','請操作員調整 for 迴圈，使模組執行 '+p.expectedLimit+' 次。','全部完成後按「核准」，觀察結果定位未修正的 Bug。']
+    steps:['先說出正確的訊號執行順序。','請操作員修正 if 條件：'+
+      colorName[p.expectedColor||'RED']+'、'+p.expectedMode+'、能源 > '+(p.expectedThreshold??50)+'。',
+      '請操作員調整 for 迴圈，使模組執行 '+p.expectedLimit+' 次。','全部完成後按「核准」，觀察結果定位未修正的 Bug。']
   };
 }
 
@@ -261,7 +299,8 @@ function targetPython(p){
   if(p.kind==='sequence')target.blocks=p.target.slice();
   if(p.kind==='condition')target.blocks={...p.answer};
   if(p.kind==='loop')target.blocks={start:0,limit:p.target,step:1};
-  if(p.kind==='debug')target.blocks={order:p.target.slice(),color:'RED',mode:'AND',threshold:50,start:0,limit:p.expectedLimit,step:1};
+  if(p.kind==='debug')target.blocks={order:p.target.slice(),color:p.expectedColor||'RED',
+    mode:p.expectedMode,threshold:p.expectedThreshold??50,start:0,limit:p.expectedLimit,step:1};
   return toPython(target);
 }
 function initialWatch(p) {
@@ -323,4 +362,4 @@ function visiblePuzzle(p, isAnalyst) {
   }
   return data;
 }
-module.exports = { COLORS,STEPS,STAGES,TITLES,int,makePuzzle,modify,evaluate,toCode,toPython,objective,briefing,validateLabSpec,visiblePuzzle,truth,countLoop,lineMap,targetPython,initialWatch,simulate };
+module.exports = { COLORS,STEPS,STAGES,TITLES,int,makePuzzle,modify,evaluate,toCode,toPython,objective,briefing,validateLabSpec,visiblePuzzle,truth,countLoop,lineMap,targetPython,initialWatch,simulate,variants };

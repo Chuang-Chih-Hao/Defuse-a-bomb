@@ -430,3 +430,136 @@ pre{font:12px/1.7 'Consolas','Courier New',monospace;color:#9ce7ed;background:#0
 .teacher-mode-hint{margin:0;padding:11px 16px;background:#122d40;border-bottom:1px solid #2f607b;color:#b3e1e9;font-size:12px;line-height:1.8}
 .intro-metrics div:first-child b{font-size:clamp(19px,2.2vw,30px)}
 @media(max-width:510px){.teacher-mode-hint{font-size:11px}.turn-partner .team-roster-line{grid-template-columns:94px minmax(0,1fr)}}
+
+
+/* v1.4.0 — Classroom focus mode.
+   Only the question, answer blocks, approval and defuse are primary.
+   Existing status/teacher/diagnostic DOM stays mounted for Socket.IO and RWD. */
+.game-screen{max-width:1500px;margin-inline:auto}
+.topbar{min-height:61px}
+.topbar .brand small{display:none}
+.game-screen .status-bar{grid-template-columns:minmax(180px,1fr) auto;gap:10px;padding-bottom:12px}
+.game-screen .status-center{grid-column:1/-1;grid-row:2;text-align:left;display:flex;gap:14px;align-items:center}
+.game-screen .status-center strong{font-size:clamp(18px,2vw,25px)}
+.game-screen .status-center span{font-size:11px;letter-spacing:1px}
+.game-screen .status-right{display:none}
+.mission-track{margin:0 0 8px;min-height:28px}
+.mission-track span{display:none!important}
+.mission-track span.active{display:inline-flex!important;flex:none;min-width:155px;justify-content:center;align-items:center;
+  font-weight:800;font-size:12px;padding:5px 13px;background:#112c3b;border:1px solid #347a81;border-radius:6px}
+.turn-banner{padding:10px 14px;min-height:64px;box-shadow:none;border-width:1px;gap:12px;margin:0 0 12px}
+.turn-banner .turn-symbol{height:41px;width:41px;border-radius:9px;font-size:23px}
+.turn-banner .turn-copy h2{font-size:17px}
+.turn-banner .turn-copy p{font-size:11px;margin:2px 0 0;color:#a9c9d4;line-height:1.5}
+.turn-banner .turn-eyebrow{font-size:9px;letter-spacing:1px;margin:0}
+.turn-banner .turn-partner{display:none}
+.workflow-steps{display:none}
+.game-grid{grid-template-columns:minmax(275px, .96fr) minmax(385px,1.4fr);
+  grid-template-areas:"question editor" "status editor";gap:13px;align-items:start}
+.game-grid .sidebar-left{grid-area:question;display:flex;flex-direction:column;gap:10px}
+.game-grid .battlefield{grid-area:status;min-height:0;overflow:hidden;padding:12px 16px 14px;
+  background:#102338;border:1px solid #335a71;box-shadow:none}
+.game-grid .sidebar-right{grid-area:editor;grid-column:auto;display:flex;flex-direction:column;gap:12px}
+.panel{box-shadow:none}
+.mission-panel{border:2px solid #d6a956;background:#112335}
+.mission-panel .mission-heading{padding:11px 14px}
+.mission-panel .mission-heading h2{font-size:18px}
+.mission-panel .mission-heading span{font-size:10px;letter-spacing:0;color:#ffda9c}
+.mission-copy{padding:14px 15px;min-height:0;line-height:1.65}
+.mission-card-badge{margin-bottom:7px}
+.mission-card-title{font-size:17px;margin-bottom:6px}
+.mission-card-explain{font-size:12px;margin-bottom:8px}
+.mission-rule{font-size:18px;line-height:1.7;margin:9px 0;padding:15px;
+  color:#fff3c9;background:#273339;border-left-width:5px;letter-spacing:.2px}
+.task-lines{display:none}
+.task-hints{margin-top:9px;border:1px solid #416578;border-radius:6px;background:#0c2435}
+.task-hints>summary{list-style:none;padding:9px 12px;cursor:pointer;font-size:12px;color:#a5dfef;font-weight:800}
+.task-hints>summary::-webkit-details-marker{display:none}
+.task-hints>summary:before{content:"＋  ";color:#7ce3c4}
+.task-hints[open]>summary:before{content:"－  "}
+.task-hints .mission-actions{border:0;border-top:1px solid #365b70;border-radius:0;padding:9px 13px}
+.team-drawer{border:1px solid #31556b;border-radius:7px;background:#0d2132;overflow:hidden}
+.team-drawer>summary{cursor:pointer;list-style:none;color:#a9d3e4;font-size:12px;font-weight:800;padding:10px 14px}
+.team-drawer>summary::-webkit-details-marker{display:none}
+.team-drawer>summary:after{content:" ＋";float:right}
+.team-drawer[open]>summary:after{content:" －"}
+.team-drawer .agents-panel{border:0;border-top:1px solid #31556b;border-radius:0}
+.team-drawer .agents-panel .panel-heading{display:none}
+.team-drawer .agent{padding:7px;margin:5px 0}
+.team-drawer .agent .avatar{height:30px;width:30px;font-size:18px}
+.team-drawer .stats-micro{display:none}
+.comm-panel .panel-heading{padding:8px 13px}
+.comm-panel .panel-heading>span{display:none}
+.comm-panel .message-list{min-height:0;max-height:66px;padding:5px 12px}
+.comm-panel .message-list .empty{padding:2px 0}
+.comm-panel .message-form{padding:7px}
+.comm-panel .message-form input{font-size:12px}
+.battlefield .battlefield-head{align-items:center;font-size:11px}
+.battlefield .timer-block{text-align:left;margin:10px 0 2px}
+.battlefield .timer-block>span{font-size:10px;letter-spacing:1px}
+.battlefield .timer{font-size:39px;letter-spacing:2px;line-height:1.14}
+.battlefield .timer-sub{display:none}
+.battlefield .core-container{width:90px;height:90px;max-width:none;aspect-ratio:1;
+  margin:0;position:absolute;top:42px;right:10px}
+.battlefield .core-halo,.battlefield .ring-one,.battlefield .ring-two,
+.battlefield .circuit-node,.battlefield .wire-line{display:none}
+.battlefield .ring-three{height:98%;width:98%;border-width:4px}
+.battlefield .core-center{height:85%;width:85%;border-width:1px}
+.battlefield .core-diamond{font-size:27px}
+.battlefield .core-center small{display:none}
+.battlefield .core-center b{font-size:10px}
+.battlefield .stability-panel{position:relative;margin:10px 0 5px;max-width:calc(100% - 95px);font-size:12px}
+.battlefield .stability-track>div{height:100%}
+.battlefield .stability-track{margin:5px 0 10px}
+.battlefield .module-readout{display:none}
+.battlefield .trace-panel{margin-top:8px;border-color:#396a7a;min-height:48px;max-height:180px;
+  font-size:12px;padding:9px 11px;background:#091d2c}
+.stage-visual{margin:12px 0;padding:10px}
+.editor-panel .panel-heading{padding:12px 14px}
+.editor-panel .panel-heading h2{font-size:17px}
+.editor-panel .panel-heading>span{font-size:10px;letter-spacing:0;white-space:normal;text-align:right}
+.editor-panel .editor-top{padding:6px 13px;font-size:11px}
+.editor-panel #editor{min-height:170px;max-height:570px}
+.editor-panel .editor-body{padding:13px 15px}
+.editor-buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:5px 13px 10px}
+.editor-buttons #approveBtn,.editor-buttons #runBtn{min-height:50px;font-size:16px;font-weight:900}
+.editor-buttons button:enabled{box-shadow:0 0 0 2px #6bf5d43a}
+.editor-buttons #stepBtn{grid-column:1/-1;min-height:0;padding:6px;font-size:11px;opacity:.82}
+.editor-tip{margin:2px 0 6px;font-size:12px;text-align:center}
+#hintBtn{width:calc(100% - 26px);margin:3px 13px 10px;padding:6px 10px;border-style:solid;opacity:.8}
+.python-pane .panel-heading{padding:9px 12px}
+.python-pane .panel-heading>span{display:none}
+.python-pane .python-help{padding:5px 12px;font-size:11px}
+.python-pane .code-head{padding:6px 12px}
+.python-pane #codeOutput{max-height:260px;padding:11px 12px;min-height:105px}
+.debug-drawer{border-top:1px solid #2a5268;background:#0c2232}
+.debug-drawer summary{list-style:none;cursor:pointer;padding:10px 13px;
+  font-size:12px;font-weight:800;color:#8abacb}
+.debug-drawer summary::-webkit-details-marker{display:none}
+.debug-drawer[open] summary{color:#b3f6d6}
+.game-screen .history-panel{display:none}
+.game-screen[data-status="won"] .history-panel,
+.game-screen[data-status="failed"] .history-panel,
+.game-screen[data-teacher="true"] .history-panel{display:block}
+.game-screen .teacher-panel{border-color:#395e77}
+@media(max-width:1000px){
+  .game-grid{grid-template-columns:1fr;grid-template-areas:"question" "status" "editor"}
+  .game-grid .sidebar-left,.game-grid .sidebar-right{grid-column:auto}
+  .game-grid .sidebar-right .program-layout{grid-template-columns:minmax(0,1fr)}
+  .game-grid .sidebar-right .visual-pane{border-right:0}
+}
+@media(max-width:600px){
+  .topbar{min-height:56px}
+  .game-screen .status-bar{grid-template-columns:1fr;gap:7px}
+  .game-screen .status-center{grid-column:1;grid-row:1;text-align:left}
+  .game-screen .status-left{grid-column:1;justify-content:flex-start}
+  .game-screen .status-center strong{font-size:18px}
+  .turn-banner{padding:9px 11px}
+  .turn-banner .turn-copy h2{font-size:14px}
+  .turn-banner .turn-copy p{font-size:11px}
+  .mission-rule{font-size:16px}
+  .battlefield .timer{font-size:35px}
+  .editor-panel .panel-heading h2{font-size:15px}
+  .editor-buttons #approveBtn,.editor-buttons #runBtn{font-size:14px}
+  .python-pane #codeOutput{display:block;min-height:105px;width:100%;overflow-x:auto}
+}

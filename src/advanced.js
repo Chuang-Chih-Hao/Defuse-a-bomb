@@ -14,12 +14,26 @@ const COOL = ['PURGE','VENT','SYNC','LOCK'];
 const stepNames = {PURGE:'清除快取',VENT:'開啟散熱',SYNC:'同步能源',LOCK:'鎖定模組'};
 const choose = (n,random)=>Math.floor(random()*n);
 
-function make(stage,advanced=false,random=Math.random) {
+function make(stage,advanced=false,random=Math.random,variant=0) {
+  // 各題型有一組不同的目標排列；variant=0 保留教學入門題，
+  // 之後同關新題／重試由房間出題池取下一組，不再反覆只換表面顏色。
+  const pairs=[];
+  for(let i=1;i<=5;i++)for(let j=1;j<=5;j++)
+    if(i!==j)pairs.push([i,j]);
+  const baseIndex=pairs.findIndex(([i,j])=>i===(advanced?2:1)&&j===(advanced?4:5));
+  const uniquePairs=[pairs[baseIndex],...pairs.filter((_,i)=>i!==baseIndex)];
+  const permutations=(arr)=>arr.length?arr.flatMap((v,i)=>
+    permutations(arr.filter((_,j)=>i!==j)).map(t=>[v,...t])):[[]];
+  const coolVariants=[COOL.slice(),...permutations(COOL).filter(p=>JSON.stringify(p)!==JSON.stringify(COOL))];
   if(stage==='variables'){
     return {
       kind:'variables', label:'能源槽運算終端', advanced,
       initial:{A:choose(5,random)+2,B:choose(5,random)+2,C:0},
-      answer:{source:advanced?'B':'A',factor:advanced?3:2,divisor:advanced?2:1,modulo:5},
+      answer:variant===0?
+        {source:advanced?'B':'A',factor:advanced?3:2,divisor:advanced?2:1,modulo:5}:
+        {source:variant%2?(advanced?'A':'B'):(advanced?'B':'A'),
+          factor:1+(variant%5),divisor:1+(Math.floor(variant/5)%3),
+          modulo:3+(variant%7)},
       blocks:{source:advanced?'A':'B',factor:1,divisor:1,modulo:4},
       scenarios:[]
     };
@@ -29,14 +43,16 @@ function make(stage,advanced=false,random=Math.random) {
     const initial=CHIPS.map((_,i)=>CHIPS[(i+rotation)%5]);
     return {
       kind:'array', label:'五色晶片陣列', advanced, initial,
-      answer:{first:advanced?2:1,second:advanced?4:5},
+      answer:variant===0?{first:advanced?2:1,second:advanced?4:5}:
+        {first:uniquePairs[variant%uniquePairs.length][0],
+          second:uniquePairs[variant%uniquePairs.length][1]},
       blocks:{first:2,second:3}, scenarios:[]
     };
   }
   if(stage==='function'){
     return {
       kind:'function',label:'冷卻程序重構',advanced,
-      target:COOL.slice(), maxBlocks:6,
+      target:coolVariants[variant%coolVariants.length].slice(),maxBlocks:6,
       blocks:{body:['SYNC','PURGE','VENT','LOCK'],mainMode:'direct'},
       scenarios:[]
     };
@@ -108,7 +124,7 @@ function targetPython(p){
   const target=structuredClone(p);
   if(p.kind==='variables')target.blocks={...p.answer};
   if(p.kind==='array')target.blocks={...p.answer};
-  if(p.kind==='function')target.blocks={body:COOL.slice(),mainMode:'call'};
+  if(p.kind==='function')target.blocks={body:p.target.slice(),mainMode:'call'};
   return getPython(target);
 }
 function briefing(p){
@@ -151,12 +167,12 @@ function inspect(p) {
       {title:'讀取 chips['+(b.second-1)+'] 並交換',ok}
     ],reason:ok?'已成功交換指定晶片':'交換後的晶片位置與任務不符，請核對 Scratch 與 Python 索引。'};
   }
-  const body=same(b.body,COOL);
+  const body=same(b.body,p.target);
   const called=b.mainMode==='call';
   const budget=size(p)<=p.maxBlocks;
   const good=body&&called&&budget;
   return {success:good,trace:[
-    ...b.body.map((x,i)=>({title:'函式步驟 '+(i+1)+'：'+stepNames[x],ok:x===COOL[i]})),
+    ...b.body.map((x,i)=>({title:'函式步驟 '+(i+1)+'：'+stepNames[x],ok:x===p.target[i]})),
     {title:'主程式 '+(called?'呼叫 cool_down()':'重複放入四個指令'),ok:called},
     {title:'積木數量 '+size(p)+' / '+p.maxBlocks,ok:budget}
   ],reason:good?'函式定義與呼叫成功':'必須先依序定義函式，再只用一個 cool_down() 積木呼叫。'};

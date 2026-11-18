@@ -1,6 +1,6 @@
 {
   "name": "defuse-a-bomb",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "程式炸彈拆除專家：彈性 1～3 學生合作程式教育遊戲",
   "main": "src/server.js",

@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const express = require('express');
 const http = require('node:http');
 const { Server } = require('socket.io');
-const { STAGES, TITLES, makePuzzle, modify, evaluate, validateLabSpec, visiblePuzzle, initialWatch, simulate } = require('./engine');
+const { STAGES, TITLES, makePuzzle, modify, evaluate, validateLabSpec, visiblePuzzle, initialWatch, simulate, variants } = require('./engine');
 
 const hash = token => crypto.createHash('sha256').update(token).digest('hex');
 const newToken = () => crypto.randomBytes(32).toString('base64url');
@@ -33,7 +33,8 @@ function newRoom() {
     puzzle: null, revision: 0, approved: -1, stability: 100, teamScore: 0,
     stageScore: 0, hintsLeft: 2, attempts: 0, lastResult: null, resultSerial: 0,
     messages: [], history: [], labRounds: 0, designerSpec: null,
-    stepPlan:null,stepState:null
+    stepPlan:null,stepState:null,
+    variantBags:{}, variantHistory:{}, questionNumber:0
   };
   rooms.set(code,room);
   return { room,teacherToken };
@@ -63,6 +64,29 @@ function connectedCount(room){return room.members.filter(m=>Boolean(m.socketId))
 function requireStudent(room){
   if(connectedCount(room)<1)throw Error('至少要有一位學生在線才能開始或切換關卡');
 }
+// 同房間的同題型先取未使用過的版本；抽完題庫才洗牌重來。
+function nextVariant(room,stage){
+  const key=stage+':'+room.difficulty;
+  if(!room.variantBags[key]?.length){
+    const limit=variants(stage);
+    const previous=room.variantHistory[key]?.at(-1);
+    const pool=Array.from({length:limit},(_,i)=>i);
+    if(!room.variantHistory[key])room.variantHistory[key]=[];
+    // 第一題維持教學範例，接下來依洗牌順序取不重複的目標。
+    const initial=!room.variantHistory[key].length;
+    const bag=initial?pool.slice(1):pool;
+    for(let i=bag.length-1;i>0;i--){
+      const j=crypto.randomInt(i+1);
+      [bag[i],bag[j]]=[bag[j],bag[i]];
+    }
+    if(!initial&&bag.length>1&&bag[0]===previous)
+      [bag[0],bag[1]]=[bag[1],bag[0]];
+    room.variantBags[key]=initial?[0,...bag]:bag;
+  }
+  const variant=room.variantBags[key].shift();
+  room.variantHistory[key].push(variant);
+  return {variant,number:room.variantHistory[key].length};
+}
 function begin(room, spec = null) {
   requireStudent(room);
   room.turnRoster=room.members.filter(m=>m.socketId).map(m=>m.slot);
@@ -74,8 +98,14 @@ function begin(room, spec = null) {
   };
   room.assignment={analystSlot:slotOf('analyst'),operatorSlot:slotOf('operator')};
   if (spec) room.designerSpec = spec;
-  room.puzzle = room.mode === 'lab' ? (room.designerSpec ? makePuzzle('lab',false,room.designerSpec) : null)
-    : makePuzzle(STAGES[room.stageIndex],room.difficulty === 'advanced');
+  if(room.mode==='lab'){
+    room.questionNumber=0;
+    room.puzzle=room.designerSpec?makePuzzle('lab',false,room.designerSpec):null;
+  }else{
+    const next=nextVariant(room,STAGES[room.stageIndex]);
+    room.questionNumber=next.number;
+    room.puzzle=makePuzzle(STAGES[room.stageIndex],room.difficulty==='advanced',null,next.variant);
+  }
   room.revision = 0;
   room.approved = -1;
   room.stability = 100;
@@ -124,7 +154,8 @@ function publicState(room, member = null, teacher = false) {
     messages:room.teacherPlayer.messages
   }:null;
   return {
-    code: room.code, mode: room.mode, role, isTeacher:teacher,
+    code: room.code,mode:room.mode,role,isTeacher:teacher,
+    questionNumber:room.questionNumber,
     teacherActor,maxStudents:3,connectedStudents:connectedCount(room),
     assignment:room.assignment,
     stage: stageName(room), stageIndex: room.stageIndex, title: TITLES[stageName(room)],
@@ -154,7 +185,7 @@ function createGameServer() {
   const app = express();
   app.disable('x-powered-by');
   app.get('/health', (_, res) => res.json({ok:true,service:'defuse-a-bomb',rooms:rooms.size,uptime:Math.round(process.uptime())}));
-  app.get('/api/info', (_, res) => res.json({name:'程式炸彈拆除專家：最後倒數',version:'1.3.0',stages:STAGES}));
+  app.get('/api/info', (_, res) => res.json({name:'程式炸彈拆除專家：最後倒數',version:'1.4.0',stages:STAGES}));
   app.use(express.static(path.join(__dirname,'../public'),{
     maxAge:0,
     setHeaders(res, filePath) {
