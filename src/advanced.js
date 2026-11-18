@@ -11,6 +11,7 @@ const EXTENDED_TITLES = {
 };
 const CHIPS = ['RED', 'BLUE', 'GREEN', 'YELLOW', 'PURPLE'];
 const COOL = ['PURGE','VENT','SYNC','LOCK'];
+const chipName={RED:'紅',BLUE:'藍',GREEN:'綠',YELLOW:'黃',PURPLE:'紫'};
 const stepNames = {PURGE:'清除快取',VENT:'開啟散熱',SYNC:'同步能源',LOCK:'鎖定模組'};
 const choose = (n,random)=>Math.floor(random()*n);
 
@@ -23,7 +24,6 @@ function make(stage,advanced=false,random=Math.random,variant=0) {
   for(let i=1;i<=5;i++)for(let j=i+1;j<=5;j++)pairs.push([i,j]);
   const canonical=advanced?[2,4]:[1,5];
   const uniquePairs=[canonical,...pairs.filter(([i,j])=>i!==canonical[0]||j!==canonical[1])];
-  const chipName={RED:'紅',BLUE:'藍',GREEN:'綠',YELLOW:'黃',PURPLE:'紫'};
   const permutations=(arr)=>arr.length?arr.flatMap((v,i)=>
     permutations(arr.filter((_,j)=>i!==j)).map(t=>[v,...t])):[[]];
   const coolVariants=[COOL.slice(),...permutations(COOL).filter(p=>JSON.stringify(p)!==JSON.stringify(COOL))];
