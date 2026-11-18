@@ -64,6 +64,8 @@ function connectedCount(room){return room.members.filter(m=>Boolean(m.socketId))
 function requireStudent(room){
   if(connectedCount(room)<1)throw Error('至少要有一位學生在線才能開始或切換關卡');
 }
+// 全伺服器記錄每題型「上一個新房間的首題」，降低新房間撞題機率。
+const lastOpeningVariant=new Map();
 // 同房間的同題型先取未使用過的版本；抽完題庫才洗牌重來。
 function nextVariant(room,stage){
   const key=stage+':'+room.difficulty;
@@ -72,16 +74,18 @@ function nextVariant(room,stage){
     const previous=room.variantHistory[key]?.at(-1);
     const pool=Array.from({length:limit},(_,i)=>i);
     if(!room.variantHistory[key])room.variantHistory[key]=[];
-    // 第一題維持教學範例，接下來依洗牌順序取不重複的目標。
-    const initial=!room.variantHistory[key].length;
-    const bag=initial?pool.slice(1):pool;
-    for(let i=bag.length-1;i>0;i--){
+    // 新建房間的第一題也要從整份題庫隨機出題；不能每次都先給 variant 0。
+    // 題庫洗牌使用 crypto.randomInt；同房間一輪內絕對不重複。
+    for(let i=pool.length-1;i>0;i--){
       const j=crypto.randomInt(i+1);
-      [bag[i],bag[j]]=[bag[j],bag[i]];
+      [pool[i],pool[j]]=[pool[j],pool[i]];
     }
-    if(!initial&&bag.length>1&&bag[0]===previous)
-      [bag[0],bag[1]]=[bag[1],bag[0]];
-    room.variantBags[key]=initial?[0,...bag]:bag;
+    const initial=!room.variantHistory[key].length;
+    const last=initial?lastOpeningVariant.get(key):previous;
+    if(pool.length>1&&pool[0]===last)
+      [pool[0],pool[1]]=[pool[1],pool[0]];
+    if(initial)lastOpeningVariant.set(key,pool[0]);
+    room.variantBags[key]=pool;
   }
   const variant=room.variantBags[key].shift();
   room.variantHistory[key].push(variant);
