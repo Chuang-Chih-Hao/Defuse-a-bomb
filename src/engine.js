@@ -24,7 +24,7 @@ const permutations=(arr,size=arr.length)=>
   size===0?[[]]:arr.flatMap((v,i)=>
     permutations(arr.filter((_,j)=>j!==i),size-1).map(t=>[v,...t]));
 function variants(stage){
-  return stage==='array'?20:stage==='loop'?9:24;
+  return stage==='array'?10:stage==='loop'?9:24;
 }
 function variantOrder(stage,advanced,n,reference){
   const all=permutations(stage==='debug'?STEPS:COLORS,
