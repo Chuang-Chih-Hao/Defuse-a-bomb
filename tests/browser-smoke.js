@@ -147,7 +147,7 @@ async function main(){
     assert.equal(await teacher.locator('#timer').textContent(),frozen);
     await teacher.locator('[data-teacher=resume]').click();
     const loopGoal=await a.locator('.mission-rule').textContent();
-    const loopCount=Number(loopGoal.match(/執行 (d+) 次/)?.[1]);
+    const loopCount=Number(loopGoal.match(/執行 (\d+) 次/)?.[1]);
     assert.ok(loopCount>=2&&loopCount<=10);
     await setField(b,'limit',loopCount);
     await waitBothCode('range(0, '+loopCount+', 1)');
